@@ -249,6 +249,55 @@ agentctl add-skill https://github.com/user/skill-repo
 
 MIT
 
+## Release Process
+
+### Option 1: GitHub UI (Recommended)
+
+1. Go to the **Actions** tab on GitHub
+2. Select the **Release** workflow
+3. Click **Run workflow**
+4. Enter the version (e.g., `v0.0.2`)
+5. Click **Run workflow**
+
+The workflow will:
+- Run tests on the `develop` branch
+- Merge `develop` into `main`
+- Create a GitHub Release with changelog
+- Upload a tarball for download
+
+### Option 2: Manual Release
+
+```bash
+# 1. Update version in src/agentctl.sh
+#    Change the version() function output
+
+# 2. Update CHANGELOG.md
+#    Add new version section at the top
+
+# 3. Commit changes
+git add src/agentctl.sh CHANGELOG.md
+git commit -m "chore: bump version to v0.0.2"
+
+# 4. Push to develop
+git push origin develop
+
+# 5. Create and push tag
+git tag v0.0.2
+git push origin v0.0.2
+
+# GitHub Actions will:
+# - Run tests
+# - Merge develop → main
+# - Create release with changelog
+```
+
+### Version Format
+
+Use semantic versioning:
+- `v0.0.1` - Patch release (bug fixes)
+- `v0.1.0` - Minor release (new features)
+- `v1.0.0` - Major release (breaking changes)
+
 ## Testing
 
 Run `bats tests/` to execute the test suite.

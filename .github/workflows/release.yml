@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.0.2)'
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -39,13 +45,30 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
+      - name: Get version
+        id: get_version
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
       - name: Merge develop to main
         run: |
           git checkout main
-          git merge develop --no-ff -m "chore: release ${GITHUB_REF#refs/tags/}
+          git merge develop --no-ff -m "chore: release ${{ steps.get_version.outputs.VERSION }}
           
           Merge develop to main for release"
           git push origin main
+
+      - name: Create tag (workflow_dispatch only)
+        if: github.event.inputs.version != ''
+        run: |
+          git tag -a ${{ steps.get_version.outputs.VERSION }} -m "Release ${{ steps.get_version.outputs.VERSION }}"
+          git push origin ${{ steps.get_version.outputs.VERSION }}
 
   release:
     needs: merge-to-main
@@ -57,7 +80,15 @@ jobs:
 
       - name: Get version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          # Use workflow_dispatch input if provided, otherwise use tag ref
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
 
       - name: Generate changelog
         id: changelog

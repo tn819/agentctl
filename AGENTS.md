@@ -244,9 +244,36 @@ Before releasing:
 - [ ] All tests pass (`bats tests/`)
 - [ ] Cross-platform testing (macOS + Linux)
 - [ ] Documentation updated
-- [ ] Version bumped in `agentctl.sh`
-- [ ] Changelog updated
-- [ ] Git tag created
+- [ ] Version bumped in `src/agentctl.sh`
+- [ ] CHANGELOG.md updated with new version section
+
+### Release Process (UI-based)
+
+1. Go to **Actions** tab on GitHub
+2. Select **Release** workflow
+3. Click **Run workflow**
+4. Enter version (e.g., `v0.0.2`)
+5. Click **Run workflow**
+
+Workflow will:
+- Run tests on `develop` branch
+- Merge `develop` → `main`
+- Create GitHub Release with changelog
+- Upload tarball
+
+### Manual Release (CLI)
+
+```bash
+git checkout develop
+# Update version in src/agentctl.sh
+# Update CHANGELOG.md
+git add -A && git commit -m "chore: release v0.0.2"
+git push origin develop
+
+# Create tag to trigger release
+git tag v0.0.2
+git push origin v0.0.2
+```
 
 ## Common Patterns
 
