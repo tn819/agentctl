@@ -22,29 +22,28 @@ jobs:
 
       - name: Test CLI commands
         run: |
-          chmod +x src/agentctl.sh
-          ln -s "$PWD/src/agentctl.sh" /usr/local/bin/agentctl || sudo ln -s "$PWD/src/agentctl.sh" /usr/local/bin/agentctl
+          export PATH="$PWD/src:$PATH"
           export AGENTS_DIR="$HOME/.agents-test"
 
           # Test init
-          agentctl init
+          agentctl.sh init
           [ -d "$AGENTS_DIR" ]
           [ -f "$AGENTS_DIR/config.json" ]
 
           # Test config
-          agentctl config list
-          agentctl config set paths.code ~/Projects
+          agentctl.sh config list
+          agentctl.sh config set paths.code ~/Projects
 
           # Test secrets (env backend)
-          agentctl secrets set TEST_KEY "test_value"
-          [ "$(agentctl secrets get TEST_KEY)" = "test_value" ]
+          agentctl.sh secrets set TEST_KEY "test_value"
+          [ "$(agentctl.sh secrets get TEST_KEY)" = "test_value" ]
 
           # Test add-server
-          agentctl add-server test npx -y test-mcp
-          agentctl list servers | grep -q "test"
+          agentctl.sh add-server test npx -y test-mcp
+          agentctl.sh list servers | grep -q "test"
 
           # Test list
-          agentctl list
+          agentctl.sh list
 
   test-linux:
     runs-on: ubuntu-latest
@@ -61,29 +60,28 @@ jobs:
 
       - name: Test CLI commands
         run: |
-          chmod +x src/agentctl.sh
-          sudo ln -s "$PWD/src/agentctl.sh" /usr/local/bin/agentctl
+          export PATH="$PWD/src:$PATH"
           export AGENTS_DIR="$HOME/.agents-test"
 
           # Test init
-          agentctl init
+          agentctl.sh init
           [ -d "$AGENTS_DIR" ]
           [ -f "$AGENTS_DIR/config.json" ]
 
           # Test config
-          agentctl config list
-          agentctl config set paths.code ~/Projects
+          agentctl.sh config list
+          agentctl.sh config set paths.code ~/Projects
 
           # Test secrets (env backend since no pass)
-          agentctl secrets set TEST_KEY "test_value"
-          [ "$(agentctl secrets get TEST_KEY)" = "test_value" ]
+          agentctl.sh secrets set TEST_KEY "test_value"
+          [ "$(agentctl.sh secrets get TEST_KEY)" = "test_value" ]
 
           # Test add-server
-          agentctl add-server test npx -y test-mcp
-          agentctl list servers | grep -q "test"
+          agentctl.sh add-server test npx -y test-mcp
+          agentctl.sh list servers | grep -q "test"
 
           # Test list
-          agentctl list
+          agentctl.sh list
 
   lint:
     runs-on: ubuntu-latest
@@ -109,10 +107,9 @@ jobs:
 
       - name: Check for hardcoded secrets
         run: |
-          # Check for actual hardcoded credentials, not function names
-          ! grep -r "password\s*=\s*['\"]" src/ --include="*.sh" || (echo "Found hardcoded password" && exit 1)
-          ! grep -r "token\s*=\s*['\"]ghp_" src/ --include="*.sh" || (echo "Found hardcoded token" && exit 1)
-          ! grep -r "api_key\s*=\s*['\"]" src/ --include="*.sh" || (echo "Found hardcoded API key" && exit 1)
+          # Check for actual hardcoded credential values, not function names
+          ! grep -rE "(password|token|api_key|secret)\s*=\s*['\"][^'\"]{10,}['\"]" src/ --include="*.sh" || (echo "Found hardcoded credentials" && exit 1)
+          ! grep -rE "(ghp|gho|github_pat)_[a-zA-Z0-9]{36}" src/ --include="*.sh" || (echo "Found hardcoded GitHub tokens" && exit 1)
 
       - name: Check file permissions
         run: |
