@@ -113,5 +113,12 @@ jobs:
 
       - name: Check file permissions
         run: |
-          # No files should be world-writable
-          ! find . -type f -perm -002 -print | grep -v ".git" | head -1 || (echo "Found world-writable files" && exit 1)
+          # Find world-writable files (excluding .git directory)
+          # Exit 0 if no files found, exit 1 if any found
+          world_writable=$(find . -type f -perm -002 -not -path "./.git/*" 2>/dev/null)
+          if [ -n "$world_writable" ]; then
+            echo "Found world-writable files:"
+            echo "$world_writable"
+            exit 1
+          fi
+          echo "✓ No world-writable files found"
