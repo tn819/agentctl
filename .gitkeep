@@ -1,0 +1,5 @@
+# Main Branch
+
+This branch only contains releases. All development happens on the `develop` branch.
+
+See: https://github.com/tn819/agentctl/tree/develop
