@@ -13,12 +13,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install bats
-        run: brew install bats-core
+        run: npm install
 
       - name: Run tests
         run: |
           export PATH="$PWD/src:$PATH"
-          bats tests/
+          npx bats tests/
 
       - name: Test CLI commands
         run: |
@@ -51,12 +51,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install bats
-        run: npm install -g bats
+        run: npm install
 
       - name: Run tests
         run: |
           export PATH="$PWD/src:$PATH"
-          bats tests/
+          npx bats tests/
 
       - name: Test CLI commands
         run: |

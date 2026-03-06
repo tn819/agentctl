@@ -43,7 +43,7 @@ jobs:
       - name: Run tests
         run: |
           export PATH="$PWD/src:$PATH"
-          bats tests/
+          npx bats tests/
 
       - name: Release
         env:
