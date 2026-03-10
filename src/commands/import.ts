@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync, readdirSync, lstatSync, readFileSync } from "fs";
 import type { Command } from "commander";
 import { AGENTS_DIR, loadMcpConfig, loadProviders, resolveProviderConfigPath, expandHome } from "../lib/config";
-import { PLATFORMS, type McpServer, type PlatformKey } from "../lib/schemas";
+import { PLATFORMS, RawProviderServerSchema, type McpServer, type PlatformKey } from "../lib/schemas";
 
 const mcpPath = join(AGENTS_DIR, "mcp-config.json");
 
@@ -38,7 +38,9 @@ function extractServersFromFile(
     const servers = parsed[serversKey] ?? {};
     const result: Record<string, McpServer> = {};
     for (const [name, raw] of Object.entries(servers as Record<string, unknown>)) {
-      const r = raw as Record<string, unknown>;
+      const parsed = RawProviderServerSchema.safeParse(raw);
+      if (!parsed.success) continue;
+      const r = parsed.data;
       if (r["url"] || r["httpUrl"] || r["serverUrl"] || r["type"] === "http") {
         result[name] = {
           transport: "http",
