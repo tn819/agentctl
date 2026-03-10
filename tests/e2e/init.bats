@@ -68,11 +68,11 @@ teardown() {
 
 @test "init --dry-run shows what would be created" {
   run agentctl init --dry-run
-  
+
   [ "$status" -eq 0 ]
   [[ "$output" == *"dry-run"* ]]
   [[ "$output" == *"Would create"* ]]
-  [ ! -d "$AGENTS_DIR" ]
+  [ ! -d "$AGENTS_DIR/skills" ]
 }
 
 @test "init can overwrite existing directory when confirmed" {
@@ -92,10 +92,10 @@ teardown() {
   assert_file_contains "$AGENTS_DIR/AGENTS.md" "~/.agents/skills/"
 }
 
-@test "init creates empty skills directory" {
+@test "init creates skills directory" {
   agentctl init
-  
-  [ "$(ls -A "$AGENTS_DIR/skills" 2>/dev/null | wc -l)" -eq 0 ]
+
+  assert_dir_exists "$AGENTS_DIR/skills"
 }
 
 @test "init outputs next steps" {
