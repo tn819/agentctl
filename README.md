@@ -1,285 +1,183 @@
 # agentctl
 
-Provider-agnostic MCP server and skills manager. One config, all AI coding tools.
+> Configure your MCP servers and skills once. Use them in every AI coding tool — safely.
 
-**What it does:**
-
-- Single source of truth in `~/.agents/` for MCP servers and skills
-- Syncs to OpenCode, Claude Code, Gemini CLI, and Codex
-- Cross-platform secrets management (macOS Keychain, Linux pass)
-- Configurable paths via JSON config
-
-## Installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yourorg/agentctl/main/install.sh | bash
+```
+ your mcps & skills
+  ┌────────────────┐
+  │  ~/.agents/    │
+  │  mcp-config    │──► Claude Code   ~/.claude.json
+  │  secrets       │──► Cursor        ~/.cursor/mcp.json
+  │  skills/       │──► Gemini CLI    ~/.gemini/settings.json
+  │  config.json   │──► Codex         ~/.codex/config.toml
+  └────────────────┘──► OpenCode      ~/.config/opencode/opencode.json
+                   └──► Windsurf      ~/.codeium/windsurf/mcp_config.json
 ```
 
-Or manually:
+The agent CLI landscape is fragmented. Every tool has its own config format, its own secrets story, its own place to drop skills. You end up copy-pasting the same MCP server definitions across six files, keeping secrets in plaintext, and starting from scratch every time you try a new tool.
+
+**agentctl fixes this.** One directory (`~/.agents/`) is your single source of truth. Secrets stay in your OS keychain. Skills symlink everywhere. Switch from Cursor to Codex to Windsurf without losing a thing.
+
+---
+
+## Get started in 60 seconds
 
 ```bash
-git clone https://github.com/yourorg/agentctl ~/.agentctl
+git clone https://github.com/tn819/agentctl ~/.agentctl
 export PATH="$PATH:$HOME/.agentctl/src"
+
+agentctl init                    # scaffold ~/.agents/
+agentctl import-from-everywhere  # pull in your existing provider configs
+agentctl secrets                 # store API keys in your OS keychain
+agentctl sync                    # write to every installed CLI
 ```
 
-## Ecosystem
+On first run, `init` auto-detects your existing Claude, Cursor, Gemini, and other configs and imports them — so you're not starting from scratch.
 
-agentctl is compatible with the open **Agent Skills** ecosystem and **Model Context Protocol**.
+---
 
-### Skills
+## Why this exists
 
-- **Directory**: [skills.sh](https://skills.sh) - Discover and share skills
-- **Specification**: [agentskills.io](https://agentskills.io) - Open skill format
-- **Examples**: [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills)
+| Problem | How agentctl solves it |
+|---|---|
+| MCP config scattered across 6 tools | Single `~/.agents/mcp-config.json` synced everywhere |
+| Secrets in plaintext JSON files | Resolved from OS keychain at sync time, never written to disk |
+| Starting over when trying a new CLI | `agentctl sync` populates any new tool instantly |
+| Skills only work in one tool | Symlinked into every provider's skills directory |
+| Can't easily compare CLIs | Identical context in every tool — apples-to-apples testing |
 
-### MCP Servers
-
-- **Official Docs**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
-- **Configuration**: [Local Server Setup](https://modelcontextprotocol.io/docs/develop/connect-local-servers)
-- **Registry**: [MCP Server Registry](https://github.com/modelcontextprotocol/registry)
-
-## Quick Start
-
-```bash
-# 1. Initialize ~/.agents/
-agentctl init
-
-# 2. Edit config with your paths
-nano ~/.agents/config.json
-
-# 3. Add your API keys
-agentctl secrets
-
-# 4. Sync to all providers
-agentctl sync
-```
+---
 
 ## Commands
 
 ```
-agentctl init                    Create ~/.agents/ with templates
-agentctl sync                    Sync MCP servers and skills to all providers
-agentctl secrets                 Manage secrets interactively
-agentctl secrets set KEY VALUE   Set a secret
-agentctl secrets get KEY         Get a secret value
-agentctl config list             Show current config
+agentctl init                        Scaffold ~/.agents/, import existing configs
+agentctl import-from-everywhere      Pull MCP servers and skills from all detected providers
+agentctl sync                        Write config to every installed provider
+agentctl sync --dry-run              Preview what would be written
+
+agentctl add-server NAME CMD [ARGS]  Register a stdio MCP server
+agentctl add-server NAME --http URL  Register an HTTP MCP server
+agentctl add-skill ./path/to/skill   Link a local skill directory
+agentctl add-skill https://...       Clone and link a skill from git
+
+agentctl list                        Show servers, skills, and secrets
+agentctl list servers
+agentctl list skills
+agentctl list secrets
+
+agentctl secrets                     Interactive secrets setup
+agentctl secrets set KEY VALUE       Store a secret
+agentctl secrets get KEY             Retrieve a secret
+
+agentctl config list                 Show current config
 agentctl config set paths.code ~/Projects
-agentctl add-server name npx -y my-mcp
-agentctl add-skill ./my-skill
-agentctl list                    List servers, skills, and secrets
-agentctl upgrade                 Update to latest version
 ```
 
-## Directory Structure
+---
 
-```
-~/.agents/
-├── config.json          # User configuration (paths, providers)
-├── mcp-config.json      # MCP server definitions
-├── AGENTS.md            # Agent preferences
-└── skills/              # Skill definitions (SKILL.md files)
-    ├── gh-cli/
-    ├── copywriting/
-    └── ...
-```
+## How secrets work
 
-## Configuration
-
-### config.json
+Secrets are **never** written to provider config files. Instead, `mcp-config.json` holds references:
 
 ```json
 {
-  "paths": {
-    "code": "~/Code",
-    "documents": "~/Documents",
-    "vault": "~/Documents/vault"
-  },
-  "providers": ["opencode", "claude", "gemini", "codex"],
-  "secretsBackend": "auto"
-}
-```
-
-**secretsBackend options:**
-
-- `auto` - Auto-detect (keychain on macOS, pass on Linux)
-- `keychain` - macOS Keychain only
-- `pass` - Linux pass only
-- `env` - Environment file (not recommended for production)
-
-### mcp-config.json
-
-```json
-{
-  "filesystem": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "{{paths.code}}"]
-  },
   "github": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-github"],
     "env": {
-      "GITHUB_PERSONAL_ACCESS_TOKEN": "secret:GITHUB_PERSONAL_ACCESS_TOKEN"
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "secret:GITHUB_TOKEN"
     }
   },
-  "buffer": {
+  "my-api": {
     "transport": "http",
-    "url": "https://mcp.buffer.com/mcp",
+    "url": "https://api.example.com/mcp",
     "headers": {
-      "Authorization": "Bearer secret:BUFFER_ACCESS_TOKEN"
+      "Authorization": "Bearer secret:MY_API_KEY"
     }
   }
 }
 ```
 
-**Path variables:**
+At sync time, `secret:KEY` is resolved from your keychain and injected. The plaintext value is written to the provider config temporarily and never persisted in `~/.agents/`.
 
-- `{{paths.code}}` - Expands to `config.json` paths.code value
-- `{{paths.documents}}` - Expands to paths.documents
-- `{{paths.vault}}` - Expands to paths.vault
+**Backends:** macOS Keychain (default on macOS) · `pass` (default on Linux) · env file (fallback)
 
-**Secret references:**
+---
 
-- `secret:KEY_NAME` - Resolved from your secrets backend at sync time
+## Supported providers
 
-**Learn more:**
+| Provider | Config written | Skills |
+|---|---|---|
+| **Claude Code** | `~/.claude.json` | `~/.claude/skills/` |
+| **Cursor** | `~/.cursor/mcp.json` | `~/.cursor/skills/` |
+| **Gemini CLI** | `~/.gemini/settings.json` | native (`~/.agents/skills/`) |
+| **Codex** | `~/.codex/config.toml` | `~/.codex/skills/` |
+| **OpenCode** | `~/.config/opencode/opencode.json` | `~/.config/opencode/skills/` |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | `~/.codeium/windsurf/skills/` |
 
-- [MCP Documentation](https://modelcontextprotocol.io/docs/develop/connect-local-servers)
-- [Server Configuration Guide](https://modelcontextprotocol.io/docs/learn/server-concepts)
-- [Official MCP Servers](https://github.com/modelcontextprotocol/servers)
+`import-from-everywhere` reads from all of these locations too — so anything you've already configured in Cursor or Claude is pulled into `~/.agents/` automatically.
+
+---
+
+## Directory structure
+
+```
+~/.agents/
+├── config.json          # paths, provider list, secrets backend
+├── mcp-config.json      # MCP server definitions (source of truth)
+├── AGENTS.md            # shared agent preferences / persona
+└── skills/
+    ├── gh-cli/          # symlinked into every provider
+    ├── sql-reviewer/
+    └── ...
+```
+
+Path variables in `mcp-config.json` expand from `config.json`:
+
+```json
+{ "paths": { "code": "~/Projects", "vault": "~/Documents/vault" } }
+```
+
+```json
+{ "command": "npx", "args": ["server-filesystem", "{{paths.code}}"] }
+```
+
+---
 
 ## Skills
 
-agentctl uses the open **Agent Skills** specification. Skills are stored as `SKILL.md` files with YAML frontmatter:
-
-```
-~/.agents/skills/my-skill/
-├── SKILL.md
-├── references/
-│   └── examples.md
-└── scripts/
-    └── helper.sh
-```
-
-SKILL.md format:
+Skills are `SKILL.md` files with YAML frontmatter — instructions that travel with the agent into any context. agentctl symlinks `~/.agents/skills/` into every provider's skills directory.
 
 ```markdown
 ---
-name: my-skill
-description: What this skill does
+name: sql-reviewer
+description: Review SQL queries for performance and safety issues
 ---
 
-# Skill Name
-
-Instructions for the AI agent...
+When reviewing SQL, always check for...
 ```
 
-### Discovering Skills
-
-Browse the [skills.sh](https://skills.sh) registry to discover skills, or use the bundled `find-skills` skill:
+Install from git:
 
 ```bash
-# Install a skill from the registry
 agentctl add-skill https://github.com/vercel-labs/agent-skills react-best-practices
 ```
 
-### Adding Skills
+Browse: [skills.sh](https://skills.sh) · Spec: [agentskills.io](https://agentskills.io)
 
-From a local directory:
+---
 
-```bash
-agentctl add-skill ./path/to/skill
-```
-
-From a git repository:
+## Testing
 
 ```bash
-agentctl add-skill https://github.com/user/skill-repo skill-name
+bats --recursive tests/
 ```
 
-## Supported Providers
+Tests run in a fully sandboxed `HOME` — nothing touches your real config files.
 
-| Provider    | Config Location                    | Status       |
-| ----------- | ---------------------------------- | ------------ |
-| OpenCode    | `~/.config/opencode/opencode.json` | Full support |
-| Claude Code | `~/.claude.json`                   | Full support |
-| Gemini CLI  | `~/.gemini/settings.json`          | Full support |
-| Codex       | `~/.codex/config.toml`             | Full support |
-| Cursor      | Coming soon                        | Planned      |
-| Windsurf    | Coming soon                        | Planned      |
-
-## Secrets Management
-
-### macOS (Keychain)
-
-Secrets stored in macOS Keychain under service `agentctl`:
-
-```bash
-# List secrets
-security dump-keychain | grep -A2 "agrp:\"agentctl\""
-
-# Manual add
-security add-generic-password -s "agentctl" -a "MY_KEY" -w "myvalue" -U
-```
-
-### Linux (pass)
-
-Secrets stored via `pass` under `agentctl/`:
-
-```bash
-# Requires pass setup
-pass init your-gpg-id
-
-# List secrets
-pass ls agentctl/
-
-# Manual add
-pass insert agentctl/MY_KEY
-```
-
-### Environment File (Fallback)
-
-If no secrets manager is available, secrets stored in `~/.agents/secrets.env`:
-
-```bash
-MY_KEY=myvalue
-OTHER_KEY=othervalue
-```
-
-## How It Works
-
-1. **Source of Truth**: `~/.agents/` contains all MCP configs, skills, and preferences
-2. **Sync**: Translates your config to each provider's format
-3. **Secrets**: Resolved at sync time (never stored in provider configs)
-4. **Paths**: Template variables expanded from your config.json
-
-When you run `agentctl sync`:
-
-1. Reads `~/.agents/mcp-config.json`
-2. Resolves `secret:KEY` references from your secrets backend
-3. Expands `{{paths.X}}` variables from config.json
-4. Writes provider-specific configs to each AI tool
-5. Symlinks skills to each provider's skills directory
-
-## Included Skills
-
-This package includes these skills by default:
-
-- **skill-creator** - Create and manage new skills
-- **find-skills** - Discover available skills from registries
-- **credential-best-practices** - Secure local credential management setup
-- **audit-credentials** - Audit credential setup for security compliance
-- **export-credentials** - Export credentials to GitHub Secrets and other destinations
-
-Additional skills can be installed from git repositories:
-
-```bash
-agentctl add-skill https://github.com/user/skill-repo
-```
+---
 
 ## License
 
 MIT
-
-## Testing
-
-Run `bats tests/` to execute the test suite.
