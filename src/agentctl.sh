@@ -162,7 +162,7 @@ import_from_everywhere() {
   echo -e "\n\033[1m── Importing from all providers ────────────────────────────\033[0m"
 
   python3 << PYEOF
-import json, os, platform, re, subprocess, sys
+import json, os, platform, re, tempfile
 
 mcp_config_path = "$mcp_config"
 providers_json_path = "$providers_json"
@@ -260,8 +260,8 @@ for pid, p in providers.items():
         if os.path.exists(cfg_path):
             try:
                 servers_found = read_toml_mcp(cfg_path)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"  warning: could not parse {cfg_path}: {e}", file=open('/dev/stderr', 'w'))
     elif fmt == "json":
         cfg_path = plat_path(p.get("configPath", ""))
         if os.path.exists(cfg_path):
@@ -270,8 +270,8 @@ for pid, p in providers.items():
                     data = json.load(f)
                 key = p.get("configStructure", {}).get("serversPropertyName", "mcpServers")
                 servers_found = data.get(key, {})
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"  warning: could not parse {cfg_path}: {e}", file=open('/dev/stderr', 'w'))
 
     imported_from = []
     for name, cfg in servers_found.items():
@@ -296,7 +296,7 @@ for pid, p in providers.items():
     if os.path.realpath(skills_path) == os.path.realpath(skills_dir):
         continue
 
-    skill_header_printed = bool(imported_from)
+    provider_header_printed = bool(imported_from)
     for entry in sorted(os.listdir(skills_path)):
         src = os.path.join(skills_path, entry)
         if not os.path.isdir(src):
@@ -304,16 +304,18 @@ for pid, p in providers.items():
         dest = os.path.join(skills_dir, entry)
         if os.path.islink(dest) or os.path.isdir(dest):
             continue
-        if not skill_header_printed:
+        if not provider_header_printed:
             print(f"\n  {BOLD}{p['displayName']}{RESET}")
-            skill_header_printed = True
+            provider_header_printed = True
         os.symlink(src, dest)
         print(f"  {GREEN}✓{RESET}  skill:  {entry}")
         total_skills += 1
 
-with open(mcp_config_path, "w") as f:
+tmp = mcp_config_path + ".tmp"
+with open(tmp, "w") as f:
     json.dump(config, f, indent=2)
     f.write("\n")
+os.replace(tmp, mcp_config_path)
 
 print()
 if total_servers == 0 and total_skills == 0:

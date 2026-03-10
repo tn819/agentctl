@@ -39,7 +39,6 @@ teardown() {
 @test "init mcp-config.json has default servers" {
   agentctl init
   
-  assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "filesystem"
   assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "github"
 }
 

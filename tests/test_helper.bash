@@ -141,6 +141,12 @@ mock_provider_config() {
     codex)
       config_dir="$HOME/.codex"
       ;;
+    cursor)
+      config_dir="$HOME/.cursor"
+      ;;
+    windsurf)
+      config_dir="$HOME/.codeium/windsurf"
+      ;;
     *)
       echo "Unknown provider: $provider" >&2
       return 1
