@@ -1,8 +1,8 @@
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import {
-  AgentConfigSchema, McpConfigSchema, ProvidersSchema,
-  type AgentConfig, type McpConfig, type Providers, type Provider,
+  AgentConfigSchema, McpConfigSchema, ProvidersSchema, PLATFORMS,
+  type AgentConfig, type McpConfig, type Providers, type Provider, type PlatformKey,
 } from "./schemas";
 
 export const AGENTS_DIR = process.env["AGENTS_DIR"] ?? join(process.env["HOME"] ?? "~", ".agents");
@@ -45,8 +45,9 @@ export function expandHome(value: string): string {
 
 /** Resolve provider config path for current platform */
 export function resolveProviderConfigPath(provider: Provider): string {
-  const platform = process.platform;
-  const raw =
-    (provider.configPath[platform] ?? provider.configPath["linux"]) ?? "";
+  const platform = (PLATFORMS as readonly string[]).includes(process.platform)
+    ? process.platform as PlatformKey
+    : "linux" as PlatformKey;
+  const raw = (provider.configPath[platform] ?? provider.configPath["linux"]) ?? "";
   return expandHome(raw.replace("$HOME", process.env["HOME"] ?? "~"));
 }

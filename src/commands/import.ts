@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync, readdirSync, lstatSync, readFileSync } from "fs";
 import type { Command } from "commander";
 import { AGENTS_DIR, loadMcpConfig, loadProviders, resolveProviderConfigPath, expandHome } from "../lib/config";
-import type { McpServer } from "../lib/schemas";
+import { PLATFORMS, type McpServer, type PlatformKey } from "../lib/schemas";
 
 const mcpPath = join(AGENTS_DIR, "mcp-config.json");
 
@@ -85,7 +85,9 @@ export function registerImport(program: Command): void {
       const existing = loadMcpConfig();
       const providers = loadProviders();
       let imported = 0;
-      const platform = process.platform;
+      const platform: PlatformKey = (PLATFORMS as readonly string[]).includes(process.platform)
+        ? process.platform as PlatformKey
+        : "linux";
 
       for (const provider of Object.values(providers)) {
         const format = provider.configFormat;
