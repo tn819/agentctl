@@ -5,22 +5,15 @@ PROJECT_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 AGENTCTL="${PROJECT_ROOT}/src/agentctl.sh"
 
 setup_test_env() {
-  export TEST_AGENTS_DIR="$(mktemp -d)"
-  export AGENTS_DIR="$TEST_AGENTS_DIR"
-  
-  if [[ -d "$HOME/.agents" ]]; then
-    export AGENTS_BACKUP="$HOME/.agents.backup.$RANDOM"
-    mv "$HOME/.agents" "$AGENTS_BACKUP"
-  fi
+  # Full HOME sandbox — no real ~/.claude, ~/.cursor, etc. can leak in
+  export SANDBOX_HOME="$(mktemp -d)"
+  export HOME="$SANDBOX_HOME"
+  export AGENTS_DIR="$SANDBOX_HOME/.agents"
 }
 
 teardown_test_env() {
-  if [[ -n "${TEST_AGENTS_DIR:-}" && -d "$TEST_AGENTS_DIR" ]]; then
-    rm -rf "$TEST_AGENTS_DIR"
-  fi
-  
-  if [[ -n "${AGENTS_BACKUP:-}" && -d "$AGENTS_BACKUP" ]]; then
-    mv "$AGENTS_BACKUP" "$HOME/.agents"
+  if [[ -n "${SANDBOX_HOME:-}" && -d "$SANDBOX_HOME" ]]; then
+    rm -rf "$SANDBOX_HOME"
   fi
 }
 
@@ -140,6 +133,12 @@ mock_provider_config() {
       ;;
     codex)
       config_dir="$HOME/.codex"
+      ;;
+    cursor)
+      config_dir="$HOME/.cursor"
+      ;;
+    windsurf)
+      config_dir="$HOME/.codeium/windsurf"
       ;;
     *)
       echo "Unknown provider: $provider" >&2
