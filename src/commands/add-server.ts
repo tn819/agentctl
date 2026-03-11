@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import type { Command } from "commander";
 import { AGENTS_DIR, loadMcpConfig } from "../lib/config";
 import type { McpServer } from "../lib/schemas";
+import { RegistryClient } from "../lib/registry";
 
 export function registerAddServer(program: Command): void {
   const cmd = program
@@ -45,10 +46,45 @@ export function registerAddServer(program: Command): void {
           process.exit(1);
         }
 
-        server = { command: cmdArgs[0]!, args: cmdArgs.slice(1) };
-        config[name] = server;
-        await Bun.write(mcpPath, JSON.stringify(config, null, 2));
-        console.log(`Added server: ${name}`);
+        // Registry ID: contains "/" but isn't a local path
+        const firstArg = cmdArgs[0]!;
+        if (firstArg.includes("/") && !firstArg.startsWith("/") && !firstArg.startsWith(".")) {
+          const client = new RegistryClient();
+          let entry;
+          try {
+            entry = await client.lookup(firstArg);
+          } catch (e) {
+            console.error(`Registry lookup failed: ${e}`);
+            process.exit(1);
+          }
+          if (!entry) {
+            console.error(`Not found in MCP registry: ${firstArg}`);
+            process.exit(1);
+          }
+          const resolved = client.resolvePackage(entry);
+          (config as Record<string, unknown>)[name] = {
+            registry: firstArg,
+            ...(entry.server.version ? { version: entry.server.version } : {}),
+            command: resolved.command,
+            args: resolved.args,
+            ...(resolved.requiredSecrets.length > 0
+              ? { env: Object.fromEntries(resolved.requiredSecrets.map(k => [k, `secret:${k}`])) }
+              : {}),
+          };
+          await Bun.write(mcpPath, JSON.stringify(config, null, 2));
+          console.log(`Added ${name} from registry (${firstArg})`);
+          if (resolved.requiredSecrets.length > 0) {
+            console.log(`\nSecrets needed:`);
+            resolved.requiredSecrets.forEach(k =>
+              console.log(`  vakt secrets set ${k} <value>`)
+            );
+          }
+        } else {
+          server = { command: firstArg, args: cmdArgs.slice(1) };
+          config[name] = server;
+          await Bun.write(mcpPath, JSON.stringify(config, null, 2));
+          console.log(`Added server: ${name}`);
+        }
       }
       console.log("Run 'vakt sync' to push to providers.");
     });
