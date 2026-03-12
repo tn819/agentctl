@@ -1,9 +1,21 @@
-# vakt
+```
+ ██╗   ██╗ █████╗ ██╗  ██╗████████╗
+ ██║   ██║██╔══██╗██║ ██╔╝╚══██╔══╝
+ ██║   ██║███████║█████╔╝    ██║
+ ╚██╗ ██╔╝██╔══██║██╔═██╗    ██║
+  ╚████╔╝ ██║  ██║██║  ██╗   ██║
+   ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
+```
 
 > Secure MCP runtime for AI coding tools — policy enforcement, audit logging, registry verification, and multi-provider sync.
 
-[![releases](https://img.shields.io/github/v/release/tn819/vakt?label=latest&color=0a0a0a)](https://github.com/tn819/vakt/releases)
-[![license](https://img.shields.io/badge/license-MIT-0a0a0a)](LICENSE)
+[![CI](https://github.com/tn819/vakt/actions/workflows/ci.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/ci.yml)
+[![Tests](https://github.com/tn819/vakt/actions/workflows/test.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/test.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tn819_agentctl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tn819_agentctl)
+[![Release](https://img.shields.io/github/v/release/tn819/vakt?label=release&color=22c55e)](https://github.com/tn819/vakt/releases)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/runtime-Bun-fbf0df?logo=bun&logoColor=black)](https://bun.sh/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ```
  configure once
@@ -278,6 +290,17 @@ vakt secrets list                List all stored secret keys (values never shown
 
 vakt config list                 Show current config
 vakt config set paths.code ~/Projects
+vakt config set otel.endpoint http://collector:4317
+
+vakt audit show                  Show recent MCP tool call audit log
+vakt audit show --server github  Filter by server name
+vakt audit show --last 24h       Show last 24 hours (1h|24h|7d|4w)
+vakt audit export                Export audit log as JSON
+vakt audit export --since <iso>  Filter by date
+
+vakt daemon start                Start the background daemon
+vakt daemon stop                 Stop the daemon
+vakt daemon status               Show daemon and server process status
 ```
 
 ---
@@ -301,9 +324,10 @@ New provider? Add an entry to `providers.json`. No code changes required.
 
 ```
 ~/.agents/
-├── config.json          # paths, provider list, secrets backend
+├── config.json          # paths, provider list, secrets backend, otel config
 ├── mcp-config.json      # MCP server definitions (safe to commit — no secrets)
 ├── policy.json          # tool allow/deny rules per server (optional)
+├── audit.db             # SQLite audit log of tool calls and sync events
 ├── AGENTS.md            # shared agent preferences / persona
 └── skills/
     ├── gh-cli/          # symlinked into every provider
