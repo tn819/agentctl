@@ -55,10 +55,10 @@ vakt/
 │   │   ├── daemon.ts
 │   │   ├── runtime.ts
 │   │   ├── upgrade.ts
-│   │   ├── pull.ts               # TODO: remote config/policy pull
-│   │   ├── lockdown.ts           # TODO: managed-mcp.json + MDM profile
-│   │   ├── watch.ts              # TODO: fswatch/inotifywait drift watcher
-│   │   └── registry.ts           # TODO: skills registry (separate from MCP registry)
+│   │   ├── pull.ts
+│   │   ├── lockdown.ts
+│   │   ├── watch.ts
+│   │   └── registry.ts
 │   ├── daemon/                   # Background process manager + IPC server
 │   │   ├── index.ts
 │   │   ├── ipc.ts
@@ -74,8 +74,8 @@ vakt/
 │       ├── otel.ts               # OpenTelemetry pipeline, per-tool spans
 │       ├── registry.ts           # MCP registry client (registry.modelcontextprotocol.io)
 │       ├── runtime.ts            # E2B cloud runtime adapter
-│       ├── remote.ts             # TODO: fetch config/policy/skills from Git / HTTPS (create this)
-│       └── verify.ts             # TODO: supply chain verification (cosign / npm SLSA) (create this)
+│       ├── remote.ts             # Remote config fetch (GitHub/GitLab/HTTPS/local)
+│       └── verify.ts             # Supply chain verification (cosign OCI + npm SLSA)
 ├── tests/
 │   ├── unit/                     # Bun unit tests (*.test.ts)
 │   │   ├── setup.ts              # Bun test preload — configured in bunfig.toml
@@ -267,21 +267,21 @@ teardown() { teardown_test_env; }
 | Daemon + IPC | `vakt daemon [start\|stop\|status]` | `commands/daemon.ts`, `daemon/` |
 | E2B cloud runtime | `vakt runtime [list\|set]` | `commands/runtime.ts`, `lib/runtime.ts` |
 | Single compiled binary | `dist/vakt` | `bun build --compile` |
+| Remote config pull | `vakt pull [--dry-run] [--policy-only]` | `commands/pull.ts`, `lib/remote.ts` |
+| Central policy merge | automatic on `vakt pull` | `lib/policy.ts` — `loadMergedPolicy`, `mergePolicies` |
+| Lockdown mode | `vakt lockdown [--dry-run] [--generate-mdm]` | `commands/lockdown.ts` |
+| Drift watcher | `vakt watch [--revert] [--alert-only]` | `commands/watch.ts` |
+| Enterprise secrets | `secret:vault:` / `secret:op:` / `secret:azure:` refs | `lib/secrets.ts` — `vaultGet`, `opGet`, `azureGet` |
+| Skills registry | `vakt registry skills [list\|search\|install]` | `commands/registry.ts` |
+| Supply chain verify | `lib/verify.ts` | `lib/verify.ts` — `verifyOci`, `verifyNpm` |
 
-### TODO — port from bash (reference: `backup/bash-rewrite` branch)
+### TODO
 
-| Feature | Command | Files to create |
-|---------|---------|-----------------|
-| Remote config pull | `vakt pull [--dry-run] [--policy-only]` | `src/commands/pull.ts`, `src/lib/remote.ts` |
-| Central policy merge | — (used by pull + sync) | extend `src/lib/policy.ts` |
-| Lockdown mode | `vakt lockdown [--dry-run] [--generate-mdm]` | `src/commands/lockdown.ts` |
-| Drift watcher | `vakt watch [--revert] [--alert-only]` | `src/commands/watch.ts` |
-| Enterprise secrets | — (extend secrets command) | extend `src/lib/secrets.ts` + `schemas.ts` |
-| Skills registry | `vakt registry skills [search\|install\|list]` | `src/commands/registry.ts` |
-| Supply chain verify | gate in `vakt add-server` | `src/lib/verify.ts` |
-| GitHub Pages site | — | `docs/` |
-
-Bash reference implementations are on `backup/bash-rewrite` branch.
+| Feature | Notes |
+|---------|-------|
+| Wire `verify.ts` into `add-server` | Check `registryPolicy` in `PolicyEngine`; call `verifyPackage` before writing to `mcp-config.json` |
+| `autoSync` in `sync.ts` | Check `config.remote?.autoSync` at top of sync, call pull first |
+| GitHub Pages site | `docs/` — landing page, docs, enterprise guide |
 
 ## Secret Reference Syntax
 
@@ -290,9 +290,9 @@ Resolved at sync time by `resolveSecretRefs()` in `src/lib/secrets.ts`:
 | Reference | Backend | Status |
 |-----------|---------|--------|
 | `secret:KEY` | Local (keychain / pass / env) | ✅ |
-| `secret:vault:path/to/key` | HashiCorp Vault CLI (`vault kv get`) | TODO |
-| `secret:op:vault/item/field` | 1Password CLI (`op item get`) | TODO |
-| `secret:azure:vault-name/secret` | Azure CLI (`az keyvault secret show`) | TODO |
+| `secret:vault:path/to/key` | HashiCorp Vault CLI (`vault kv get`) | ✅ |
+| `secret:op:vault/item/field` | 1Password CLI (`op item get`) | ✅ |
+| `secret:azure:vault-name/secret` | Azure CLI (`az keyvault secret show`) | ✅ |
 
 ## Path Templating
 
