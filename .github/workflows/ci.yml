@@ -39,11 +39,10 @@ jobs:
             grep -q "^---" "$skill_dir/SKILL.md" || (echo "Missing YAML frontmatter in $skill_dir/SKILL.md" && exit 1)
           done
 
-      - name: Check CLI entry point is executable and responds
+      - name: Check CLI entry point responds
         run: |
-          chmod +x src/agentctl.sh
-          src/agentctl.sh --version
-          src/agentctl.sh --help
+          bun run src/index.ts --version
+          bun run src/index.ts --help
 
       - name: Check installer script
         run: |
