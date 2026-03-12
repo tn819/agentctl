@@ -4,5 +4,16 @@ if [ ! -d "$BUN_BIN" ]; then
 fi
 export PATH="/usr/bin:/bin:/usr/local/bin:${BUN_BIN}:/opt/homebrew/bin:${PATH}"
 
-# Full e2e suite (~2min) — runs on push, not every commit
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# If src/ changed, auto-refresh AGENTS.md and commit it if needed
+if git diff --name-only HEAD @{u} 2>/dev/null | grep -q '^src/'; then
+  bash "$REPO_ROOT/scripts/refresh-agents-md.sh"
+  if ! git diff --quiet AGENTS.md; then
+    git add "$REPO_ROOT/AGENTS.md"
+    git commit -m "chore: refresh AGENTS.md architecture tree [pre-push]"
+  fi
+fi
+
+# Full e2e suite — runs on every push
 bats --recursive tests/
