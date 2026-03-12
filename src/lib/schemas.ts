@@ -66,6 +66,41 @@ export const RawProviderServerSchema = z
 
 export type RawProviderServer = z.infer<typeof RawProviderServerSchema>;
 
+// ── Remote config ─────────────────────────────────────────────────────────────
+
+export const RemoteConfigSchema = z.object({
+  url: z.string(),
+  token: z.string().optional(),
+  autoSync: z.boolean().default(false),
+});
+
+export type RemoteConfig = z.infer<typeof RemoteConfigSchema>;
+
+// ── Skills registry config ────────────────────────────────────────────────────
+
+export const SkillsRegistryConfigSchema = z.object({
+  url: z.string(),
+  token: z.string().optional(),
+});
+
+export const SkillsIndexEntrySchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  type: z.enum(["git", "archive"]).default("git"),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  version: z.string().optional(),
+});
+
+export const SkillsIndexSchema = z.object({
+  version: z.literal("1"),
+  skills: z.array(SkillsIndexEntrySchema),
+});
+
+export type SkillsRegistryConfig = z.infer<typeof SkillsRegistryConfigSchema>;
+export type SkillsIndexEntry = z.infer<typeof SkillsIndexEntrySchema>;
+export type SkillsIndex = z.infer<typeof SkillsIndexSchema>;
+
 // ── Agent config ─────────────────────────────────────────────────────────────
 
 export const AgentConfigSchema = z.object({
@@ -87,6 +122,10 @@ export const AgentConfigSchema = z.object({
       api_key:  z.string(),
       template: z.string().optional(),
     }).optional(),
+  }).optional(),
+  remote: RemoteConfigSchema.optional(),
+  skills: z.object({
+    registry: SkillsRegistryConfigSchema.optional(),
   }).optional(),
 });
 
@@ -170,6 +209,9 @@ export const PolicySchema = z.object({
   registryPolicy: z.enum(["allow-unverified", "warn-unverified", "registry-only"])
     .default("allow-unverified"),
   servers: z.record(z.string(), PolicyServerRulesSchema).optional(),
+  _meta: z.object({
+    lockedKeys: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 export type PolicyServerRules = z.infer<typeof PolicyServerRulesSchema>;

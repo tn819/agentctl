@@ -166,18 +166,61 @@ export async function secretsHas(key: string): Promise<boolean> {
   return (await secretsGet(key)) !== null;
 }
 
+async function vaultGet(path: string): Promise<string | null> {
+  const { stdout, ok } = await run("vault", ["kv", "get", "-field=value", path]);
+  return ok ? stdout : null;
+}
+
+async function opGet(spec: string): Promise<string | null> {
+  // spec format: "vault/item/field"
+  const parts = spec.split("/");
+  if (parts.length < 3) return null;
+  const [vault, item, ...fieldParts] = parts;
+  const field = fieldParts.join("/");
+  const { stdout, ok } = await run("op", [
+    "item", "get", item!, "--vault", vault!, "--fields", field!,
+  ]);
+  return ok ? stdout : null;
+}
+
+async function azureGet(spec: string): Promise<string | null> {
+  // spec format: "vault-name/secret-name"
+  const slashIdx = spec.indexOf("/");
+  if (slashIdx === -1) return null;
+  const vaultName = spec.slice(0, slashIdx);
+  const secretName = spec.slice(slashIdx + 1);
+  const { stdout, ok } = await run("az", [
+    "keyvault", "secret", "show",
+    "--vault-name", vaultName,
+    "--name", secretName,
+    "--query", "value",
+    "-o", "tsv",
+  ]);
+  return ok ? stdout : null;
+}
+
 export async function resolveSecretRefs(
   value: string
 ): Promise<{ resolved: string; missing: string[] }> {
   const missing: string[] = [];
-  const refs = [...value.matchAll(/secret:(\w+)/g)].map((m) => m[1]!);
+  // Match secret:KEY (plain) or secret:vault|op|azure:rest/path (namespaced)
+  const refs = [...value.matchAll(/secret:((?:vault|op|azure):[\w\/\-\.]+|\w+)/g)].map((m) => m[1]!);
   let resolved = value;
-  for (const key of refs) {
-    const val = await secretsGet(key);
-    if (val === null) {
-      missing.push(key);
+  for (const ref of refs) {
+    let val: string | null = null;
+    if (ref.startsWith("vault:")) {
+      val = await vaultGet(ref.slice("vault:".length));
+    } else if (ref.startsWith("op:")) {
+      val = await opGet(ref.slice("op:".length));
+    } else if (ref.startsWith("azure:")) {
+      val = await azureGet(ref.slice("azure:".length));
     } else {
-      resolved = resolved.replace(`secret:${key}`, val);
+      val = await secretsGet(ref);
+    }
+    if (val === null) {
+      missing.push(ref);
+    } else {
+      resolved = resolved.replace(`secret:${ref}`, val);
     }
   }
   return { resolved, missing };

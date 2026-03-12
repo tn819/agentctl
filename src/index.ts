@@ -14,6 +14,10 @@ import { registerAudit } from "./commands/audit";
 import { registerDaemon } from "./commands/daemon";
 import { registerProxy } from "./commands/proxy";
 import { registerRuntime } from "./commands/runtime";
+import { registerPull } from "./commands/pull";
+import { registerLockdown } from "./commands/lockdown";
+import { registerWatch } from "./commands/watch";
+import { registerRegistry } from "./commands/registry";
 
 const program = new Command();
 program
@@ -35,5 +39,9 @@ registerAudit(program);
 registerDaemon(program);
 registerProxy(program);
 registerRuntime(program);
+registerPull(program);
+registerLockdown(program);
+registerWatch(program);
+registerRegistry(program);
 
 program.parse();
