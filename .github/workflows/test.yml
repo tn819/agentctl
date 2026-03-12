@@ -28,24 +28,24 @@ jobs:
 
       - name: Test CLI commands
         run: |
-          export PATH="$PWD/src:$HOME/.bun/bin:$PATH"
+          export PATH="$HOME/.bun/bin:$PATH"
           export AGENTS_DIR="$HOME/.agents-test"
           export AGENTS_SECRETS_BACKEND=env
 
-          agentctl.sh init
+          bun run src/index.ts init
           [ -d "$AGENTS_DIR" ]
           [ -f "$AGENTS_DIR/config.json" ]
 
-          agentctl.sh config list
-          agentctl.sh config set paths.code ~/Projects
+          bun run src/index.ts config list
+          bun run src/index.ts config set paths.code ~/Projects
 
-          agentctl.sh secrets set TEST_KEY "test_value"
-          [ "$(agentctl.sh secrets get TEST_KEY)" = "test_value" ]
+          bun run src/index.ts secrets set TEST_KEY "test_value"
+          [ "$(bun run src/index.ts secrets get TEST_KEY)" = "test_value" ]
 
-          agentctl.sh add-server test npx -y test-mcp
-          agentctl.sh list servers | grep -q "test"
+          bun run src/index.ts add-server test npx -y test-mcp
+          bun run src/index.ts list servers | grep -q "test"
 
-          agentctl.sh list
+          bun run src/index.ts list
 
   test-linux:
     runs-on: ubuntu-latest
@@ -71,24 +71,24 @@ jobs:
 
       - name: Test CLI commands
         run: |
-          export PATH="$PWD/src:$HOME/.bun/bin:$PATH"
+          export PATH="$HOME/.bun/bin:$PATH"
           export AGENTS_DIR="$HOME/.agents-test"
           export AGENTS_SECRETS_BACKEND=env
 
-          agentctl.sh init
+          bun run src/index.ts init
           [ -d "$AGENTS_DIR" ]
           [ -f "$AGENTS_DIR/config.json" ]
 
-          agentctl.sh config list
-          agentctl.sh config set paths.code ~/Projects
+          bun run src/index.ts config list
+          bun run src/index.ts config set paths.code ~/Projects
 
-          agentctl.sh secrets set TEST_KEY "test_value"
-          [ "$(agentctl.sh secrets get TEST_KEY)" = "test_value" ]
+          bun run src/index.ts secrets set TEST_KEY "test_value"
+          [ "$(bun run src/index.ts secrets get TEST_KEY)" = "test_value" ]
 
-          agentctl.sh add-server test npx -y test-mcp
-          agentctl.sh list servers | grep -q "test"
+          bun run src/index.ts add-server test npx -y test-mcp
+          bun run src/index.ts list servers | grep -q "test"
 
-          agentctl.sh list
+          bun run src/index.ts list
 
   lint:
     runs-on: ubuntu-latest
@@ -101,7 +101,7 @@ jobs:
 
       - name: Check for TODO/FIXME
         run: |
-          ! grep -r "TODO\|FIXME" src/ --include="*.sh" || (echo "Found TODO/FIXME comments" && exit 1)
+          ! grep -r "TODO\|FIXME" src/ --include="*.ts" || (echo "Found TODO/FIXME comments" && exit 1)
 
   security-check:
     runs-on: ubuntu-latest
@@ -110,8 +110,8 @@ jobs:
 
       - name: Check for hardcoded secrets
         run: |
-          ! grep -rE "(password|token|api_key|secret)\s*=\s*['\"][^'\"]{10,}['\"]" src/ --include="*.sh" || (echo "Found hardcoded credentials" && exit 1)
-          ! grep -rE "(ghp|gho|github_pat)_[a-zA-Z0-9]{36}" src/ --include="*.sh" || (echo "Found hardcoded GitHub tokens" && exit 1)
+          ! grep -rE "(password|token|api_key|secret)\s*=\s*['\"][^'\"]{10,}['\"]" src/ --include="*.ts" || (echo "Found hardcoded credentials" && exit 1)
+          ! grep -rE "(ghp|gho|github_pat)_[a-zA-Z0-9]{36}" src/ --include="*.ts" || (echo "Found hardcoded GitHub tokens" && exit 1)
 
       - name: Check file permissions
         run: |
