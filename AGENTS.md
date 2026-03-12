@@ -1,343 +1,352 @@
-# Agent Development Guidelines for agentctl
-
-This document provides guidelines for AI agents working on the agentctl codebase.
+# Agent Development Guidelines for vakt
 
 ## Project Overview
 
-`agentctl` is a provider-agnostic CLI tool for managing MCP servers and skills across multiple AI coding tools (OpenCode, Claude Code, Gemini CLI, Codex). It provides cross-platform secrets management and configurable paths.
+`vakt` is an enterprise MCP server and skills manager that syncs approved servers and policies across all AI coding tools (Claude Code, Cursor, Windsurf, Gemini CLI, Codex, OpenCode). It provides central policy, secrets management, audit logging, a skills registry, and supply chain verification — with zero infrastructure overhead.
+
+## Language: TypeScript + Bun
+
+**vakt is written in TypeScript, compiled and run with Bun. No Python. No shell scripts in `src/` except `src/agentctl.sh` (CLI shim) and `src/lib/secrets.sh` (legacy bash backend).**
+
+- All source code in `src/` is `.ts`
+- Bun is the runtime, test runner, and bundler
+- **Zod is the schema/validation library — all external data must be parsed through a Zod schema before use**
+- `commander` handles the CLI surface
+- `smol-toml` for TOML parsing (Codex provider)
+- `@modelcontextprotocol/sdk` for the MCP proxy
+- `@opentelemetry/sdk-node` + `@opentelemetry/api` for OTel spans
+- `@e2b/code-interpreter` for cloud runtime
+
+### Required toolchain
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| `bun` | Runtime, bundler, test runner | `curl -fsSL https://bun.sh/install \| bash` |
+| `bats` | End-to-end CLI tests | `brew install bats-core` |
+
+```bash
+bun run dev                                           # run from source
+bun build src/index.ts --compile --outfile dist/vakt  # single binary
+bun test tests/unit/                                  # unit tests
+bats tests/e2e/                                       # e2e tests
+bun test tests/unit/ && bats tests/e2e/               # full suite
+```
 
 ## Architecture
 
 ```
-agentctl/
+vakt/
 ├── src/
-│   ├── agentctl.sh         # Main CLI entry point
-│   ├── commands/           # Command implementations
-│   │   └── sync.sh
-│   ├── lib/                # Shared libraries
-│   │   └── secrets.sh
-│   └── templates/          # Configuration templates
-├── skills/                 # Bundled skills (5 default)
-├── tests/                  # Test suite
-│   ├── e2e/               # End-to-end tests
-│   └── test_helper.bash   # Test utilities
-└── install.sh             # One-line installer
+│   ├── index.ts                  # CLI entry (commander) — registers all commands
+│   ├── providers.json            # Provider registry (data-driven, validated by ProvidersSchema)
+│   ├── agentctl.sh               # Thin shim: exec bun run src/index.ts "$@"
+│   ├── commands/                 # One file per top-level command
+│   │   ├── init.ts
+│   │   ├── sync.ts
+│   │   ├── add-server.ts
+│   │   ├── add-skill.ts
+│   │   ├── secrets.ts
+│   │   ├── config.ts
+│   │   ├── list.ts
+│   │   ├── import.ts
+│   │   ├── audit.ts
+│   │   ├── search.ts
+│   │   ├── proxy.ts
+│   │   ├── daemon.ts
+│   │   ├── runtime.ts
+│   │   ├── upgrade.ts
+│   │   ├── pull.ts               # TODO: remote config/policy pull
+│   │   ├── lockdown.ts           # TODO: managed-mcp.json + MDM profile
+│   │   ├── watch.ts              # TODO: fswatch/inotifywait drift watcher
+│   │   └── registry.ts           # TODO: skills registry (separate from MCP registry)
+│   ├── daemon/                   # Background process manager + IPC server
+│   │   ├── index.ts
+│   │   ├── ipc.ts
+│   │   ├── process-manager.ts
+│   │   └── proxy.ts
+│   └── lib/                      # Shared libraries — pure functions, no CLI side effects
+│       ├── schemas.ts            # ALL Zod schemas and inferred types — single source of truth
+│       ├── config.ts             # loadAgentConfig, loadMcpConfig, loadProviders, path utils
+│       ├── resolver.ts           # Secret injection, path expansion, provider formatting, TOML
+│       ├── secrets.ts            # Secrets backends: keychain / pass / env
+│       ├── policy.ts             # PolicyEngine: glob-based allow/deny/ask
+│       ├── audit.ts              # SQLite audit store (OCSF class_uid 4001)
+│       ├── otel.ts               # OpenTelemetry pipeline, per-tool spans
+│       ├── registry.ts           # MCP registry client (registry.modelcontextprotocol.io)
+│       ├── runtime.ts            # E2B cloud runtime adapter
+│       ├── remote.ts             # TODO: fetch config/policy/skills from Git / HTTPS (create this)
+│       └── verify.ts             # TODO: supply chain verification (cosign / npm SLSA) (create this)
+├── tests/
+│   ├── unit/                     # Bun unit tests (*.test.ts)
+│   │   ├── setup.ts              # Bun test preload — configured in bunfig.toml
+│   │   ├── config.test.ts
+│   │   ├── policy.test.ts
+│   │   ├── audit.test.ts
+│   │   ├── secrets.test.ts
+│   │   ├── registry.test.ts
+│   │   ├── proxy.test.ts
+│   │   └── process-manager.test.ts
+│   └── e2e/                      # bats end-to-end tests (invoke vakt CLI via agentctl.sh)
+│       └── *.bats
+├── skills/                       # Bundled skills (bash scripts + SKILL.md)
+├── docs/                         # TODO: GitHub Pages static site
+└── install.sh
+```
+
+## Schemas: Single Source of Truth
+
+**`src/lib/schemas.ts` owns every type.** Never define types inline in commands or libs — always import from schemas.
+
+Key schemas:
+
+```typescript
+AgentConfigSchema   // ~/.agents/config.json — paths, providers, secretsBackend, otel, runtime
+McpConfigSchema     // ~/.agents/mcp-config.json — record of McpServer entries
+ProvidersSchema     // src/providers.json — the 6-provider registry
+PolicySchema        // ~/.agents/policy.json — allow/deny/ask rules per server/tool
+
+StdioServerSchema   // { command, args?, env?, cwd? }
+HttpServerSchema    // { transport: "http", url, headers? }
+McpServerSchema     // z.union([StdioServerSchema, HttpServerSchema])
+
+PolicySchema        // { version, default, registryPolicy, servers? }
+```
+
+**All external JSON/TOML must be parsed via `Schema.parse()` or `Schema.safeParse()` before use.**
+- `Schema.parse()` for internal/system files (throw on bad data)
+- `Schema.safeParse()` + user-readable error for user-owned config files
+
+```typescript
+// Good — validates at the boundary
+const cfg = AgentConfigSchema.parse(JSON.parse(readFileSync(path, "utf-8")));
+
+// Good — user-facing error
+const result = PolicySchema.safeParse(raw);
+if (!result.success) {
+  console.error(`Invalid policy.json: ${result.error.issues[0]?.message}`);
+  process.exit(1);
+}
+```
+
+## Code Style
+
+### TypeScript conventions
+
+- Strict mode: `strict: true`, `noUncheckedIndexedAccess: true` — no exceptions
+- No `any`. Use `unknown` + Zod for truly dynamic shapes
+- Named exports everywhere. No default exports except `src/index.ts`
+- Async I/O: use Bun APIs (`Bun.file`, `Bun.spawn`, `Bun.write`) consistently
+- Error messages are user-facing; never expose raw stack traces at CLI output level
+- `try/catch` only at command action boundaries — let errors propagate inside lib functions
+
+### Naming
+
+| Thing | Convention | Example |
+|-------|------------|---------|
+| Files | kebab-case | `add-server.ts` |
+| Functions / vars | camelCase | `resolveSecretRefs` |
+| Classes / Types | PascalCase | `PolicyEngine`, `McpConfig` |
+| Zod schemas | PascalCase + Schema suffix | `AgentConfigSchema` |
+| Inferred types | declared immediately after schema | `type AgentConfig = z.infer<typeof AgentConfigSchema>` |
+
+### Command registration pattern
+
+```typescript
+// src/commands/my-command.ts
+import type { Command } from "commander";
+
+export function registerMyCommand(program: Command): void {
+  program
+    .command("my-command <required-arg>")
+    .description("One-line description")
+    .option("--dry-run", "preview without applying")
+    .action(async (arg, opts) => {
+      // validate → call lib functions → print output
+    });
+}
+```
+
+Register in `src/index.ts`:
+```typescript
+import { registerMyCommand } from "./commands/my-command";
+registerMyCommand(program);
+```
+
+### Output helpers (use these consistently)
+
+```typescript
+const bold   = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const green  = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const red    = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const cyan   = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const dim    = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+const ok   = (s: string) => console.log(`  ${green("✓")}  ${s}`);
+const warn = (s: string) => console.log(`  ${yellow("⚠")}  ${s}`);
+const info = (s: string) => console.log(`  ${cyan("→")}  ${s}`);
+const err  = (s: string) => console.log(`  ${red("✗")}  ${s}`);
 ```
 
 ## Testing Requirements
 
-### MANDATORY: All Core CLI Functionality Must Be Tested
-
-**Every core CLI command must have comprehensive e2e tests using a terminal emulator.**
-
-#### Core Commands Requiring Tests
-
-1. **init** - Initialize `~/.agents/` directory
-2. **sync** - Sync MCP servers and skills to providers
-3. **secrets** - Manage secrets (set, get, delete, list)
-4. **config** - View/edit configuration
-5. **add-server** - Add MCP server to config
-6. **add-skill** - Add skill to skills directory
-7. **list** - List servers, skills, and secrets
-
-#### Test Coverage Requirements
-
-Each command must be tested for:
-
-- ✅ **Success path** - Command works as documented
-- ✅ **Error handling** - Invalid inputs, missing arguments
-- ✅ **Edge cases** - Existing directories, special characters, permissions
-- ✅ **Cross-platform behavior** - macOS vs Linux differences
-- ✅ **Integration** - Commands work together (init → add → sync)
-
-#### Testing Framework
-
-Use `bats` (Bash Automated Testing System) for all tests:
+### MANDATORY: Every command needs both unit and e2e tests
 
 ```bash
-# Install bats
-brew install bats-core  # macOS
-apt install bats        # Linux
-
-# Run tests
-bats tests/e2e/
+bun test tests/unit/   # fast, no filesystem, no secrets backend calls
+bats tests/e2e/        # full CLI surface, sandboxed $HOME
 ```
 
-#### Test Structure
+### Unit test structure
+
+```typescript
+// tests/unit/my-lib.test.ts
+import { describe, it, expect } from "bun:test";
+import { myFunction } from "../../src/lib/my-lib";
+
+describe("myFunction", () => {
+  it("returns expected value", () => {
+    expect(myFunction("input")).toBe("output");
+  });
+  it("throws ZodError on invalid input", () => {
+    expect(() => myFunction("bad")).toThrow();
+  });
+});
+```
+
+### E2E test structure
 
 ```bash
 #!/usr/bin/env bats
-
-# tests/e2e/init.bats
-
 load '../test_helper'
 
 setup() {
-  # Create isolated test environment
-  export AGENTS_DIR="$(mktemp -d)"
-}
-
-teardown() {
-  # Clean up test environment
-  rm -rf "$AGENTS_DIR"
-}
-
-@test "init creates ~/.agents/ directory" {
-  run agentctl init
-
-  [ "$status" -eq 0 ]
-  [ -d "$AGENTS_DIR" ]
-  [ -f "$AGENTS_DIR/config.json" ]
-  [ -f "$AGENTS_DIR/mcp-config.json" ]
-}
-
-@test "init fails gracefully if directory exists" {
+  setup_test_env        # sandboxes $HOME to a temp dir
+  mock_secrets_backend  # sets AGENTS_SECRETS_BACKEND=env, no keychain
   agentctl init
-  run agentctl init <<< "n"
+}
+teardown() { teardown_test_env; }
 
-  [ "$status" -eq 1 ]
+@test "command succeeds" {
+  run agentctl some-command
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"expected text"* ]]
 }
 ```
 
-#### Running Tests Locally
+**`setup_test_env` must always be called first.** It sets `$HOME` and `$AGENTS_DIR` to a temporary sandbox so tests never touch the real `~/.agents/`, `~/.cursor/`, etc.
 
-```bash
-# Run all tests
-bats tests/
+**`mock_secrets_backend` must be called in setup.** It sets `AGENTS_SECRETS_BACKEND=env` to avoid any macOS Keychain dialogs during tests. Never remove this.
 
-# Run specific test file
-bats tests/e2e/init.bats
+### Coverage requirements per command
 
-# Run with verbose output
-bats --tap tests/e2e/
-```
+- ✅ Success path (happy path)
+- ✅ Error handling (invalid inputs, missing args, bad state)
+- ✅ Edge cases (no init yet, empty config, special characters)
+- ✅ Integration (init → configure → run)
 
-## Code Style Guidelines
+## Feature Status
 
-### Bash Scripts
+### Implemented ✅
 
-- Use `set -euo pipefail` for strict mode
-- Quote all variables: `"$variable"`
-- Use `[[ ]]` for conditionals (not `[ ]`)
-- Functions should be lowercase with underscores: `function_name()`
-- Use `local` for function-scoped variables
-- Prefer `printf` over `echo` for formatted output
+| Feature | Command | Key files |
+|---------|---------|-----------|
+| Initialization | `vakt init` | `commands/init.ts` |
+| Sync to 6 providers | `vakt sync [--dry-run] [--mcp-only] [--skills-only]` | `commands/sync.ts`, `lib/resolver.ts` |
+| Add MCP server (+ registry) | `vakt add-server <name> <cmd> [args]` | `commands/add-server.ts`, `lib/registry.ts` |
+| Add skill | `vakt add-skill <path>` | `commands/add-skill.ts` |
+| Config get/set | `vakt config [get\|set\|list]` | `commands/config.ts` |
+| Secrets (keychain/pass/env) | `vakt secrets [set\|get\|delete\|list]` | `commands/secrets.ts`, `lib/secrets.ts` |
+| List servers/skills | `vakt list` | `commands/list.ts` |
+| Import from all providers | `vakt import-from-everywhere` | `commands/import.ts` |
+| Upgrade vakt binary | `vakt upgrade` | `commands/upgrade.ts` |
+| MCP registry search | `vakt search <query>` | `commands/search.ts`, `lib/registry.ts` |
+| SQLite audit log | `vakt audit [show\|export]` | `commands/audit.ts`, `lib/audit.ts` |
+| OpenTelemetry spans | automatic | `lib/otel.ts` |
+| MCP stdio proxy + policy | `vakt proxy <name>` | `commands/proxy.ts`, `lib/policy.ts` |
+| Daemon + IPC | `vakt daemon [start\|stop\|status]` | `commands/daemon.ts`, `daemon/` |
+| E2B cloud runtime | `vakt runtime [list\|set]` | `commands/runtime.ts`, `lib/runtime.ts` |
+| Single compiled binary | `dist/vakt` | `bun build --compile` |
 
-### Error Handling
+### TODO — port from bash (reference: `backup/bash-rewrite` branch)
 
-```bash
-if [[ ! -f "$config_file" ]]; then
-  echo "Error: Config not found. Run 'agentctl init' first." >&2
-  return 1
-fi
-```
+| Feature | Command | Files to create |
+|---------|---------|-----------------|
+| Remote config pull | `vakt pull [--dry-run] [--policy-only]` | `src/commands/pull.ts`, `src/lib/remote.ts` |
+| Central policy merge | — (used by pull + sync) | extend `src/lib/policy.ts` |
+| Lockdown mode | `vakt lockdown [--dry-run] [--generate-mdm]` | `src/commands/lockdown.ts` |
+| Drift watcher | `vakt watch [--revert] [--alert-only]` | `src/commands/watch.ts` |
+| Enterprise secrets | — (extend secrets command) | extend `src/lib/secrets.ts` + `schemas.ts` |
+| Skills registry | `vakt registry skills [search\|install\|list]` | `src/commands/registry.ts` |
+| Supply chain verify | gate in `vakt add-server` | `src/lib/verify.ts` |
+| GitHub Pages site | — | `docs/` |
 
-### User Feedback
+Bash reference implementations are on `backup/bash-rewrite` branch.
 
-- Use colors for visual feedback (✓ for success, ✗ for error, ⚠ for warning)
-- Provide actionable error messages
-- Suggest next steps after commands
+## Secret Reference Syntax
 
-## Secrets Management
+Resolved at sync time by `resolveSecretRefs()` in `src/lib/secrets.ts`:
 
-### Security Requirements
-
-- **NEVER** log or print secret values
-- **ALWAYS** use secure backend (Keychain/pass) in production
-- **ONLY** use env file fallback for development/testing
-- **VALIDATE** secret references at sync time
-- **MASK** secrets in error messages
-
-### Backend Detection Logic
-
-```bash
-# Auto-detect secrets backend
-if [[ "$(uname)" == "Darwin" ]]; then
-  # macOS: Use Keychain
-  backend="keychain"
-elif command -v pass &>/dev/null; then
-  # Linux with pass installed
-  backend="pass"
-else
-  # Fallback to env file
-  backend="env"
-fi
-```
+| Reference | Backend | Status |
+|-----------|---------|--------|
+| `secret:KEY` | Local (keychain / pass / env) | ✅ |
+| `secret:vault:path/to/key` | HashiCorp Vault CLI (`vault kv get`) | TODO |
+| `secret:op:vault/item/field` | 1Password CLI (`op item get`) | TODO |
+| `secret:azure:vault-name/secret` | Azure CLI (`az keyvault secret show`) | TODO |
 
 ## Path Templating
 
-Variables in `mcp-config.json` are resolved from `config.json`:
+`expandPaths()` in `src/lib/config.ts` expands these in `mcp-config.json` args/URLs:
 
 - `{{paths.code}}` → `config.paths.code`
 - `{{paths.documents}}` → `config.paths.documents`
 - `{{paths.vault}}` → `config.paths.vault`
 
-Implementation:
-
-```bash
-resolve_paths() {
-  local json="$1"
-  local config="$AGENTS_DIR/config.json"
-
-  # Read paths from config
-  local code=$(python3 -c "import json; print(json.load(open('$config'))['paths']['code'])")
-
-  # Replace template variables
-  json="${json//\{\{paths.code\}\}/$code}"
-
-  echo "$json"
-}
-```
-
 ## Sync Process
 
-The sync command:
+1. `loadAgentConfig()` → Zod-parsed `AgentConfig`
+2. `loadMcpConfig()` → Zod-parsed `McpConfig`
+3. `loadProviders()` → Zod-parsed `Providers` from `providers.json`
+4. For each enabled provider: `resolveAll()` → inject secrets, expand `{{paths.*}}`
+5. `formatForProvider()` → map to provider-specific field names
+6. `writeJsonConfig()` (JSON) or `toToml()` (Codex TOML) → write to provider path
+7. `syncSkills()` → symlink `~/.agents/skills/*/` into provider skills dir
+8. Exception — Claude (`syncMethod: "cli"`): run `claude mcp remove` + `claude mcp add` instead of file write
 
-1. Reads `~/.agents/mcp-config.json`
-2. Resolves `secret:KEY` references
-3. Expands `{{paths.X}}` variables
-4. Writes to each provider's config location
-5. Symlinks skills to each provider
+## Adding a New Command
 
-### Provider Config Locations
+1. Create `src/commands/<name>.ts` with `export function register<Name>(program: Command)`
+2. Register in `src/index.ts`
+3. Write unit tests in `tests/unit/<name>.test.ts` (if lib logic involved)
+4. Write e2e tests in `tests/e2e/<name>.bats`
+5. Update feature status table above
+6. Add to usage text in `src/agentctl.sh`
 
-| Provider    | Config Path                        |
-| ----------- | ---------------------------------- |
-| OpenCode    | `~/.config/opencode/opencode.json` |
-| Claude Code | `~/.claude.json`                   |
-| Gemini CLI  | `~/.gemini/settings.json`          |
-| Codex       | `~/.codex/config.toml`             |
+## Adding a New Provider
 
-## Skill Development
+1. Add entry to `src/providers.json` — `ProvidersSchema` validates it at startup, no code changes needed
+2. Write e2e tests for provider sync behaviour
+3. Update provider table in README.md
 
-Skills are stored as `SKILL.md` files with YAML frontmatter:
+## Security Rules
 
-```markdown
----
-name: skill-name
-description: Brief description
----
+- **NEVER** log or print secret values — mask with `***` in dry-run and error output
+- **ALWAYS** parse config through its Zod schema — parse errors must produce user-readable messages
+- **VALIDATE** secret references at sync time; warn if unresolved, do not hard fail
+- **`PolicyEngine`** in `lib/policy.ts` is the single enforcement point — never inline policy checks in commands
 
-# Skill Name
+## Release
 
-Detailed instructions for AI agents...
+Automated via `semantic-release` on merge to `main`:
+- `feat:` → minor bump
+- `fix:` → patch bump
+- `chore:` / `docs:` / `refactor:` → no bump
 
-## Usage
-
-How to use this skill...
-```
-
-### Skill Structure
-
-```
-skills/skill-name/
-├── SKILL.md           # Required: Skill definition
-├── references/        # Optional: Reference docs
-├── scripts/           # Optional: Helper scripts
-└── README.md          # Optional: User documentation
-```
-
-## Release Checklist
-
-Before releasing:
-
-- [ ] All tests pass (`bats tests/`)
-- [ ] Cross-platform testing (macOS + Linux)
-- [ ] Documentation updated
-- [ ] Version bumped in `src/agentctl.sh`
-- [ ] CHANGELOG.md updated with new version section
-
-### Release Process (Automated)
-
-Releases are **fully automated** using semantic-release:
-
-1. Make commits with conventional commit messages:
-   - `feat:` → minor version bump (0.1.0)
-   - `fix:` → patch version bump (0.0.2)
-   - `chore:`, `docs:`, `refactor:` → patch bump
-
-2. Create PR to `main` branch
-
-3. When PR merges:
-   - Tests run automatically
-   - Semantic-release analyzes commits
-   - Version is bumped automatically
-   - CHANGELOG.md is generated
-   - GitHub release is created
-   - Tarball is uploaded
-
-**No manual steps required!**
-
-### Pre-1.0.0 Versioning
-
-This repo is configured so that **even breaking changes only trigger a minor bump** while the version is `< 1.0.0`. That prevents semantic-release from accidentally jumping to `1.0.0` until you explicitly change the release rules in `.releaserc.json` to allow major releases.
-
-### Manual Release (Emergency Only)
-
-If semantic-release fails:
-
-```bash
-# Create PR with conventional commit message
-git checkout -b fix/release-issue
-# Make fixes
-git commit -m "fix: resolve release issue"
-git push origin fix/release-issue
-gh pr create --base main
-# Merge PR, semantic-release will trigger
-```
-
-## Common Patterns
-
-### Adding a New Command
-
-1. Add command to `agentctl.sh` case statement
-2. Implement command function
-3. Add tests in `tests/e2e/command.bats`
-4. Update README.md with usage examples
-5. Update this AGENTS.md if needed
-
-### Adding a New Provider
-
-1. Add provider to sync logic in `src/commands/sync.sh`
-2. Map config format to provider's schema
-3. Add tests for provider sync
-4. Update README.md provider table
-5. Test on fresh installation
+Binary: `bun build src/index.ts --compile --outfile dist/vakt`
 
 ## Debugging
 
-Enable debug mode:
-
 ```bash
-export AGENTS_DEBUG=1
-agentctl sync
+AGENTS_DEBUG=1 bun run src/index.ts sync   # verbose
+bun run src/index.ts sync                  # full stack traces (source, not compiled)
 ```
-
-Verbose output:
-
-```bash
-bash -x src/agentctl.sh sync
-```
-
-## Security Considerations
-
-- Secrets are **NEVER** written to provider configs
-- Template variables are validated before expansion
-- Config files use restrictive permissions (600)
-- Git repos are scanned for leaked secrets (audit-credentials skill)
-- All external commands are validated before execution
-
-## Performance
-
-- Minimize file I/O operations
-- Use `python3` for JSON manipulation (faster than multiple jq calls)
-- Cache config reads when possible
-- Parallelize provider syncs when safe
-
-## Contributing
-
-1. Write tests first (TDD)
-2. Ensure all existing tests pass
-3. Follow code style guidelines
-4. Update documentation
-5. Test on both macOS and Linux
