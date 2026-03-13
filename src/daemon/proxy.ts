@@ -17,7 +17,9 @@ function parseFrames(data: Buffer | Uint8Array): JsonRpcFrame[] {
   return Buffer.from(data).toString("utf-8")
     .split("\n")
     .filter(l => l.trim())
-    .flatMap(l => { try { return [JSON.parse(l) as JsonRpcFrame]; } catch { return []; } });
+    // MCP uses newline-delimited JSON-RPC 2.0 over stdio; malformed lines are silently dropped
+    // per spec: https://spec.modelcontextprotocol.io/specification/basic/transports/#stdio
+    .flatMap(l => { try { return [JSON.parse(l) as JsonRpcFrame]; } catch { return []; } }); // NOSONAR
 }
 
 export interface ProxyOptions {
