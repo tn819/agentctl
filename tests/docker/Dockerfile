@@ -7,23 +7,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Bun ───────────────────────────────────────────────────────────────────────
+# Note: installs latest Bun; no version pin (intentional for test harness)
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
-# ── App source ────────────────────────────────────────────────────────────────
 WORKDIR /app
-COPY . .
 
-# ── Install JS dependencies ───────────────────────────────────────────────────
-# Main project (Bun)
+# ── Install main project dependencies (cached unless lockfiles change) ────────
+COPY package.json bun.lockb bunfig.toml ./
 RUN bun install --frozen-lockfile
 
-# MCP server fixture (Node.js npm — uses committed lockfile)
+# ── Install MCP server fixture (cached unless fixture lockfile changes) ───────
+COPY tests/fixtures/mcp/package.json tests/fixtures/mcp/package-lock.json \
+     tests/fixtures/mcp/
 RUN cd tests/fixtures/mcp && npm ci
 
-# ── Smoke-test that MCP server loads ─────────────────────────────────────────
-RUN node tests/fixtures/mcp/node_modules/@modelcontextprotocol/server-everything/dist/index.js \
-    --version 2>&1 | head -1 || true
+# ── Copy full source ──────────────────────────────────────────────────────────
+COPY . .
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 ENTRYPOINT ["/app/tests/docker/entrypoint.sh"]
