@@ -12,6 +12,8 @@ services:
       timeout: 5s
       retries: 20
       start_period: 5s
+    networks:
+      - vakt-net
 
   vakt:
     build:
