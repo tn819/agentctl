@@ -7,7 +7,7 @@
    ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 ```
 
-> One config. Six AI coding tools. Zero credentials on disk.
+> One config. All your AI coding tools. Zero credentials on disk.
 
 [![CI](https://github.com/tn819/vakt/actions/workflows/ci.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/ci.yml)
 [![Tests](https://github.com/tn819/vakt/actions/workflows/test.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/test.yml)
