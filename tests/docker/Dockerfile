@@ -14,7 +14,7 @@ ENV PATH="/root/.bun/bin:${PATH}"
 WORKDIR /app
 
 # ── Install main project dependencies (cached unless lockfiles change) ────────
-COPY package.json bun.lockb bunfig.toml ./
+COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 
 # ── Install MCP server fixture (cached unless fixture lockfile changes) ───────
