@@ -1,9 +1,9 @@
-# 0001 — Use ADR for architectural decisions
-
-**Date:** 2026-03-13
-**Status:** Accepted
-
 ---
+status: accepted
+date: 2026-03-13
+---
+
+# 0001 — Use ADR for architectural decisions
 
 ## Context
 
@@ -40,13 +40,16 @@ Good for large teams debating proposals before implementation. Adds significant 
 ## Consequences
 
 **Positive:**
+
 - Future contributors can understand *why* the system is shaped the way it is
 - Superseding a decision is explicit — the old record remains, new one links to it
 - Low friction: one file per decision, no external tooling required
 
 **Negative / trade-offs:**
+
 - Discipline required to actually write the ADR; easy to skip under time pressure
 - ADRs can become stale if not updated to `Deprecated`/`Superseded` when relevant
 
 **Neutral / to monitor:**
+
 - Decide on threshold for "significant enough to warrant an ADR" — err on the side of writing one; cheap to add, expensive to reconstruct

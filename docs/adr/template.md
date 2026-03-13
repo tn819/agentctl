@@ -1,9 +1,9 @@
-# NNNN — Title (noun phrase: what was decided)
-
-**Date:** YYYY-MM-DD
-**Status:** Proposed
-
 ---
+status: proposed
+date: YYYY-MM-DD
+---
+
+# NNNN — Title (noun phrase: what was decided)
 
 ## Context
 
@@ -46,10 +46,13 @@ What will need monitoring, documentation, or revisiting later?
 -->
 
 **Positive:**
--
+
+- _describe_
 
 **Negative / trade-offs:**
--
+
+- _describe_
 
 **Neutral / to monitor:**
--
+
+- _describe_

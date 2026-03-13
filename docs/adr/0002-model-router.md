@@ -1,9 +1,9 @@
-# 0002 — Model router: OpenAI-compatible local proxy for multi-backend LLM routing
-
-**Date:** 2026-03-13
-**Status:** Accepted
-
 ---
+status: accepted
+date: 2026-03-13
+---
+
+# 0002 — Model router: OpenAI-compatible local proxy for multi-backend LLM routing
 
 ## Context
 
@@ -85,6 +85,7 @@ Projects like RouteLLM train a classifier on prompt features to predict which mo
 ## Consequences
 
 **Positive:**
+
 - AI coding agents can be pointed at `http://localhost:4000/v1` as their model endpoint; vakt handles all backend routing transparently
 - Cost reduction: routine completions (~80% of requests in practice) served from local 7B at near-zero marginal cost
 - EU data sovereignty enforcement: policy can mandate EU-only backends for specific workspaces
@@ -92,11 +93,13 @@ Projects like RouteLLM train a classifier on prompt features to predict which mo
 - No new runtime dependencies — Bun's built-in HTTP primitives handle the proxy
 
 **Negative / trade-offs:**
+
 - Token estimation is approximate (`chars / 4`); edge cases (code-heavy prompts, non-ASCII content) may over- or under-estimate by 20–30%. This is acceptable for a routing threshold but must not be treated as billing-accurate
 - The `vakt route` process must be running for the coding agent to work; it is one more process to manage (mitigated by daemon integration — future work)
 - Response streaming (`text/event-stream`) is passed through but not inspected; streaming token counting is not possible without buffering the full response. This is acceptable — we route on *request* signals, not response content
 
 **Neutral / to monitor:**
+
 - `maxCtx` on backends is metadata only — the router does not enforce it dynamically (the upstream model will return an error if exceeded). Consider adding a hard-block rule if context overflow errors become common
 - As rule complexity grows, consider adding a `--test` subcommand that simulates routing for a given token/tool count against the current config — makes debugging rules easier
 - Provider-side prompt caching (Anthropic, Mistral cache repeated system prompt prefixes) means skills injected via vakt already benefit from ~90% token savings on the skill content portion of requests. This stacks with model routing — local model for short requests, cached prefix for the rest

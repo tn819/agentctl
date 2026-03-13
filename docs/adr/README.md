@@ -8,7 +8,7 @@ An ADR documents a significant architectural decision: the context that drove it
 
 We use a lightweight hybrid of [Michael Nygard's format](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) and [MADR](https://adr.github.io/madr/).
 
-```
+```text
 NNNN-kebab-case-title.md
 ```
 
