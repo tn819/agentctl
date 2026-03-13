@@ -35,7 +35,7 @@ export function createProxy(opts: ProxyOptions) {
 
   /** Intercepts stdin data heading to the MCP server. Returns forwarded bytes and denied responses. */
   function interceptRequest(data: Buffer | Uint8Array): { forward: Buffer; denied: string[] } {
-    if (!engine) return { forward: data, denied: [] };
+    if (!engine) return { forward: Buffer.from(data), denied: [] };
 
     const frames = parseFrames(data);
     const forward: string[] = [];
