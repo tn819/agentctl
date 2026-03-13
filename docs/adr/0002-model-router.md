@@ -3,31 +3,29 @@ status: accepted
 date: 2026-03-13
 ---
 
-# 0002 — Model router: OpenAI-compatible local proxy for multi-backend LLM routing
+# 0002 — Model router: route completions between local and remote LLMs
 
 ## Context
 
-vakt already intercepts the *tool call* layer — it sits in the stdio path between AI coding agents (Claude Code, Cursor, Gemini CLI, etc.) and MCP servers, enforcing policy, recording audit events, and managing secrets. This positions vakt as the natural control plane for AI agent infrastructure.
+vakt already sits between AI coding agents and MCP servers — it sees every tool call, enforces policy, and keeps an audit log. That positions it naturally as the control plane for AI agent infrastructure, not just MCP config management.
 
-The adjacent problem is *model completion routing*. AI coding agents currently send completions directly to a single model API. This creates several tensions:
+The obvious next layer is model completions. Right now, agents send every request — a two-line autocomplete and a 40-file refactor alike — to the same frontier API. That's expensive and sometimes the wrong call:
 
-**Cost.** Large frontier models (Claude, GPT-4o, Gemini) are expensive at volume. Routine, short-context completions — autocomplete, small edits, quick tool summaries — do not require a 100B+ parameter model. A self-hosted fine-tuned 7B model on a €250/mo GPU (Hetzner RTX 4090) can handle these cases at near-zero marginal cost.
+**Cost.** Frontier models (Claude, GPT-4o, Gemini) aren't cheap at volume. Most completions are short and routine. A fine-tuned 7B on a €250/mo Hetzner GPU handles those just fine, at near-zero marginal cost.
 
-**Context length.** The self-hosted model has a hard limit (typically 8k–32k tokens). Long-context tasks — large refactors, multi-file analysis, tasks with many tool schemas injected — must be routed to a frontier API with 128k+ context.
+**Context limits.** The local model tops out around 8k–32k tokens. Anything bigger — large refactors, multi-file analysis, requests with a lot of tool schemas — needs to go to a frontier API with 128k+ context. The router handles this automatically.
 
-**EU data sovereignty.** Some deployments require that data not leave EU jurisdiction. Frontier APIs from US hyperscalers (Anthropic, OpenAI) are problematic. Mistral AI (Paris) offers comparable frontier capability with EU hosting. The router is the enforcement point for "this workspace must stay EU."
+**EU data sovereignty.** If data can't leave the EU, US-hosted APIs (Anthropic, OpenAI) aren't an option. Mistral (Paris) covers the frontier case. The router becomes the enforcement point.
 
-**Provider diversity.** Teams already using vakt for MCP policy want one tool to manage both concerns. Bolting routing onto a separate proxy (LiteLLM, PortKey, OpenRouter) means a second control plane with no awareness of vakt's policy, secrets, or audit trail.
+**One control plane.** Teams using vakt for MCP policy don't want a second proxy sitting alongside it with its own secrets, its own logs, and no idea what vakt is doing. Fragmentation is the problem vakt exists to solve.
 
-The routing decision is simple and deterministic: two observable signals — estimated prompt token count and number of tool schemas in the request — reliably predict whether a small local model will succeed or struggle. This is not ML; it is a short-circuit rule list evaluated in order.
+The routing logic itself is deliberately simple: two signals — estimated prompt token count and number of tool schemas — are enough to predict whether the local model will cope. No ML, no classifier. Just a rule list evaluated in order, first match wins.
 
 ## Decision
 
-We add `vakt route` — a new CLI command that starts a local OpenAI-compatible HTTP proxy on a configurable port (default: 4000). Routing rules are declared in `~/.agents/config.json` under `modelRouter`, alongside existing MCP and provider config. API keys for remote backends use the existing `secret:KEY` syntax resolved at startup.
+`vakt route` starts a local OpenAI-compatible HTTP proxy (default port 4000). Point your AI coding tool at `http://localhost:4000/v1` instead of the model API directly, and vakt figures out which backend to use per request.
 
-The routing logic lives in a pure function (`selectBackend`) in `src/lib/router.ts` with no I/O, making it trivially unit-testable. The HTTP proxy uses Bun's built-in `Bun.serve()` and `fetch()` — no new runtime dependencies. All routing events are written to the existing `AuditStore` SQLite database (`model_route_events` table), keeping observability in one place.
-
-Config shape (stored in `~/.agents/config.json`):
+Rules live in `~/.agents/config.json` under `modelRouter`, alongside the existing MCP config. Backend API keys use the same `secret:KEY` syntax as everything else in vakt — resolved at startup, never hardcoded.
 
 ```json
 {
@@ -46,61 +44,61 @@ Config shape (stored in `~/.agents/config.json`):
 }
 ```
 
-Rules are evaluated in order; first match wins. A rule without `if` is the catch-all.
+The routing logic is a pure function in `src/lib/router.ts` with no I/O — easy to unit test in isolation. The HTTP proxy uses Bun's built-in `Bun.serve()` and `fetch()`, so there are no new runtime dependencies. Routing events land in the existing AuditStore SQLite database alongside MCP tool call events.
 
-Token estimation uses `Math.ceil(JSON.stringify(messages).length / 4)` — O(n) in message length, no tokenizer dependency, accurate enough to drive a routing threshold (not billing).
+Token estimation is `Math.ceil(JSON.stringify(messages).length / 4)` — no tokenizer needed, accurate enough for routing, not for billing.
 
 ## Alternatives Considered
 
-### LiteLLM (existing open-source project)
+### LiteLLM
 
-LiteLLM is an OpenAI-compatible proxy that routes to 100+ model backends. It is the closest existing product to what we are building.
+The closest existing tool to what we're building — an OpenAI-compatible proxy that routes to 100+ backends.
 
-**Why not chosen:** LiteLLM has no awareness of MCP tool calls, vakt policy, `secret:KEY` refs, or the existing AuditStore. Running it alongside vakt creates two separate control planes with no shared audit trail, duplicated secret management, and no way to correlate "which model was used for this tool call session." The value of vakt is a single control plane; adding LiteLLM fragments it.
+**Why not chosen:** LiteLLM knows nothing about MCP tool calls, vakt policy, `secret:KEY` refs, or the AuditStore. Running it next to vakt means two control planes, duplicated secret management, and no way to correlate a model request with the tool call session that triggered it. That's exactly the fragmentation we're trying to avoid.
 
 ### PortKey / OpenRouter / Helicone
 
-Hosted routing/gateway products. Same fragmentation concern as LiteLLM, plus: they are external services, meaning EU-sovereignty deployments cannot use them without sending traffic outside the EU.
+Hosted gateways with routing and observability features.
 
-**Why not chosen:** External dependency, EU sovereignty violation for regulated deployments, no integration with vakt's existing policy/audit/secrets layer.
+**Why not chosen:** They're external services, which immediately rules them out for EU-sovereignty deployments. Same integration gap as LiteLLM otherwise.
 
-### Route inside the existing `vakt proxy` MCP proxy (same process)
+### Fold it into the existing `vakt proxy`
 
-The existing proxy intercepts JSON-RPC tool calls. Model completion requests are a different protocol (OpenAI HTTP API) on a different transport (TCP) initiated by the AI coding tool, not by the MCP server. Conflating the two in one process mixes concerns and requires the MCP proxy to also bind a TCP port, complicating deployment and testing.
+The MCP proxy intercepts JSON-RPC over stdio. Model completions are OpenAI HTTP API over TCP. They're different protocols on different transports, initiated by different parties. Jamming both into one process mixes concerns and forces the MCP proxy to bind a TCP port.
 
-**Why not chosen:** Wrong abstraction level; MCP proxy and model proxy are separate concerns on separate transports.
+**Why not chosen:** Wrong layer. Keep them separate.
 
-### Client-side routing (configure the AI tool directly with multiple backends)
+### Let the AI tool handle routing itself
 
-Some AI coding tools support configuring multiple model endpoints and switching manually. This requires per-developer configuration, has no central audit trail, and cannot enforce routing policy across a team.
+Some tools let you configure multiple model endpoints and switch manually.
 
-**Why not chosen:** No central enforcement point, no audit trail, per-developer config drift — exactly the problem vakt exists to solve.
+**Why not chosen:** No central enforcement, no audit trail, per-developer drift. Again — the problem vakt exists to solve.
 
-### ML-based routing (e.g. a small classifier predicting which model to use)
+### ML-based routing (RouteLLM-style classifier)
 
-Projects like RouteLLM train a classifier on prompt features to predict which model will give the best quality/cost trade-off.
+Train a small model to predict which backend will give the best quality/cost result.
 
-**Why not chosen:** Adds a training pipeline, model artifact, and inference dependency to a security/policy tool where predictability and auditability matter more than marginal quality optimization. The two signals we use (token count, tool count) are observable, deterministic, and sufficient for the routing decisions we need today. Can be revisited if rule-based routing proves insufficient.
+**Why not chosen:** We're adding a router to a security and policy tool. Predictability and auditability matter more than squeezing out a few extra quality points. Token count and tool count are observable, deterministic, and sufficient. We can revisit if rule-based routing shows real gaps.
 
 ## Consequences
 
 **Positive:**
 
-- AI coding agents can be pointed at `http://localhost:4000/v1` as their model endpoint; vakt handles all backend routing transparently
-- Cost reduction: routine completions (~80% of requests in practice) served from local 7B at near-zero marginal cost
-- EU data sovereignty enforcement: policy can mandate EU-only backends for specific workspaces
-- Single audit trail: model routing events alongside MCP tool call events in the same SQLite database
-- No new runtime dependencies — Bun's built-in HTTP primitives handle the proxy
+- Agents get a single model endpoint; vakt routes transparently behind it
+- ~80% of routine completions can hit the local model at near-zero cost
+- EU-sovereignty enforcement becomes a config rule, not a manual process
+- Model routing events join MCP tool call events in the same audit log
+- No new dependencies — Bun handles the HTTP primitives
 
 **Negative / trade-offs:**
 
-- Token estimation is approximate (`chars / 4`); edge cases (code-heavy prompts, non-ASCII content) may over- or under-estimate by 20–30%. This is acceptable for a routing threshold but must not be treated as billing-accurate
-- The `vakt route` process must be running for the coding agent to work; it is one more process to manage (mitigated by daemon integration — future work)
-- Response streaming (`text/event-stream`) is passed through but not inspected; streaming token counting is not possible without buffering the full response. This is acceptable — we route on *request* signals, not response content
+- Token estimation is approximate (±20–30% on code-heavy or non-ASCII content). Fine for routing thresholds, not for billing
+- `vakt route` is another process to keep running. Daemon integration would fix this — it's not done yet
+- Streaming responses pass through uninspected; we can't count tokens in the stream. That's fine — routing decisions happen on the request, not the response
 
 **Neutral / to monitor:**
 
-- `maxCtx` on backends is metadata only — the router does not enforce it dynamically (the upstream model will return an error if exceeded). Consider adding a hard-block rule if context overflow errors become common
-- As rule complexity grows, consider adding a `--test` subcommand that simulates routing for a given token/tool count against the current config — makes debugging rules easier
-- Provider-side prompt caching (Anthropic, Mistral cache repeated system prompt prefixes) means skills injected via vakt already benefit from ~90% token savings on the skill content portion of requests. This stacks with model routing — local model for short requests, cached prefix for the rest
-- MCP tool response caching is explicitly deferred pending MCP spec standardization of `cache-control` semantics on tool schemas. The `interceptResponse` path in `daemon/proxy.ts` is already positioned to act on this when it arrives
+- `maxCtx` is advisory metadata, not enforced. The upstream model will reject an overlong request with an error. Add a hard-block rule if this becomes a recurring issue
+- If rules get complex, a `--test` flag that dry-runs routing for a given token/tool count would be useful
+- Provider-side prompt caching (Anthropic and Mistral both cache repeated system prompt prefixes) means skills injected by vakt already get ~90% token savings on that content automatically — stacks well with model routing
+- MCP tool response caching is deferred until the spec standardizes `cache-control` semantics on tool schemas. The `interceptResponse` hook in `daemon/proxy.ts` is already in position to act on it
