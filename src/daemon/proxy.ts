@@ -13,8 +13,8 @@ function denyFrame(id: unknown, toolName: string): string {
   }) + "\n";
 }
 
-function parseFrames(data: Buffer): JsonRpcFrame[] {
-  return data.toString()
+function parseFrames(data: Buffer | Uint8Array): JsonRpcFrame[] {
+  return Buffer.from(data).toString("utf-8")
     .split("\n")
     .filter(l => l.trim())
     .flatMap(l => { try { return [JSON.parse(l) as JsonRpcFrame]; } catch { return []; } });
@@ -31,9 +31,10 @@ export interface ProxyOptions {
 export function createProxy(opts: ProxyOptions) {
   const engine    = opts.policy ? new PolicyEngine(opts.policy) : null;
   const sessionId = opts.sessionId ?? randomUUID();
+  const pending   = new Map<unknown, { toolName: string; startedAt: number }>();
 
   /** Intercepts stdin data heading to the MCP server. Returns forwarded bytes and denied responses. */
-  function interceptRequest(data: Buffer): { forward: Buffer; denied: string[] } {
+  function interceptRequest(data: Buffer | Uint8Array): { forward: Buffer; denied: string[] } {
     if (!engine) return { forward: data, denied: [] };
 
     const frames = parseFrames(data);
@@ -62,6 +63,9 @@ export function createProxy(opts: ProxyOptions) {
           });
         } else {
           forward.push(raw);
+          if (frame.id !== undefined && frame.id !== null) {
+            pending.set(frame.id, { toolName, startedAt });
+          }
         }
       } else {
         forward.push(raw);
@@ -72,6 +76,19 @@ export function createProxy(opts: ProxyOptions) {
       forward: Buffer.from(forward.join("")),
       denied,
     };
+  }
+
+  /** Intercepts stdout data from the MCP server. Records allowed calls and passes bytes through. */
+  function interceptResponse(data: Buffer | Uint8Array): Buffer {
+    const frames = parseFrames(data);
+    for (const frame of frames) {
+      if (frame.id !== undefined && frame.id !== null && pending.has(frame.id)) {
+        const { toolName, startedAt } = pending.get(frame.id)!;
+        pending.delete(frame.id);
+        recordAllowed(toolName, startedAt);
+      }
+    }
+    return Buffer.from(data);
   }
 
   /** Call after receiving a successful tool response to record in audit. */
@@ -89,5 +106,5 @@ export function createProxy(opts: ProxyOptions) {
     });
   }
 
-  return { interceptRequest, recordAllowed };
+  return { interceptRequest, interceptResponse, recordAllowed };
 }
