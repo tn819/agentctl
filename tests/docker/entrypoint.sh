@@ -8,6 +8,10 @@ export GNUPGHOME="/tmp/vakt-test-gnupghome"
 mkdir -p "$GNUPGHOME"
 chmod 700 "$GNUPGHOME"
 gpg --batch --import "$FIXTURE_KEY"
+# Set ultimate trust so gpg encrypts to the key without confirmation prompts
+GPG_FINGERPRINT=$(gpg --with-colons --fingerprint 2>/dev/null \
+  | awk -F: '/^fpr/{print $10; exit}')
+echo "${GPG_FINGERPRINT}:6:" | gpg --import-ownertrust
 GPG_KEY_ID=$(gpg --list-secret-keys --with-colons 2>/dev/null \
   | awk -F: '/^sec/{print $5; exit}')
 echo "    Key ID: $GPG_KEY_ID"
