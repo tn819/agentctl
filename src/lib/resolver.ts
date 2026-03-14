@@ -186,7 +186,7 @@ export async function writeTomlConfig(
   serversFormat: "record" | "array",
   dryRun: boolean
 ): Promise<void> {
-  const existing = readTomlConfig(filePath) as Record<string, unknown>;
+  const existing = readTomlConfig(filePath);
   let content: string;
 
   if (serversFormat === "array") {

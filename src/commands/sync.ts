@@ -80,13 +80,13 @@ async function syncProviderMcp(
 
   if (provider.configFormat === "json") {
     await writeJsonConfig(configPath, serversKey, servers, dryRun);
-    if (!dryRun) ok(`wrote ${configPath}`);
-    else info(`[dry-run] Would write ${configPath}`);
+    if (dryRun) info(`[dry-run] Would write ${configPath}`);
+    else ok(`wrote ${configPath}`);
   } else if (provider.configFormat === "toml") {
     const serversFormat = provider.serversFormat ?? "record";
     await writeTomlConfig(configPath, serversKey, servers, serversFormat, dryRun);
-    if (!dryRun) ok(`wrote ${configPath}`);
-    else info(`[dry-run] Would write ${configPath}`);
+    if (dryRun) info(`[dry-run] Would write ${configPath}`);
+    else ok(`wrote ${configPath}`);
   }
 }
 
