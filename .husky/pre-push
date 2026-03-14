@@ -3,6 +3,7 @@ if [ ! -d "$BUN_BIN" ]; then
   BUN_BIN=$(ls -d /Users/*/.bun/bin 2>/dev/null | head -1)
 fi
 export PATH="/usr/bin:/bin:/usr/local/bin:${BUN_BIN}:/opt/homebrew/bin:${PATH}"
+export AGENTS_SECRETS_BACKEND="env"  # never trigger macOS keychain dialogs in hook subprocesses
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
@@ -16,4 +17,5 @@ if git diff --name-only HEAD @{u} 2>/dev/null | grep -q '^src/'; then
 fi
 
 # Full e2e suite — runs on every push
-bats --recursive tests/
+# tests/docker/ requires Docker Compose and runs in CI only; explicitly exclude it
+bats --recursive tests/e2e/
