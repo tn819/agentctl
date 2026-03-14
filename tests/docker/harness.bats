@@ -28,9 +28,6 @@ setup() {
 
   # Configure OTel: spans go to Jaeger gRPC port 4317
   agentctl config set otel.endpoint "http://jaeger:4317"
-
-  # Initialise pass store with the container-wide GPG key
-  init_pass_store
 }
 
 teardown() {
@@ -173,6 +170,7 @@ teardown() {
 # ── pass backend (Linux GPG secrets) ─────────────────────────────────────────
 
 @test "pass backend: secret set and retrieved" {
+  init_pass_store
   agentctl secrets set MY_TOKEN "super-secret-value"
   local val
   val=$(agentctl secrets get MY_TOKEN)
@@ -180,6 +178,7 @@ teardown() {
 }
 
 @test "pass backend: list shows stored secret key" {
+  init_pass_store
   agentctl secrets set LISTED_KEY "some-value"
   local out
   out=$(agentctl secrets list 2>&1)
