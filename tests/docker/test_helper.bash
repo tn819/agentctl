@@ -10,7 +10,7 @@ setup_docker_env() {
   export SANDBOX_HOME="$(mktemp -d)"
   export HOME="$SANDBOX_HOME"
   export AGENTS_DIR="$SANDBOX_HOME/.agents"
-  export AGENTS_SECRETS_BACKEND="pass"
+  export AGENTS_SECRETS_BACKEND="env"
   # Reuse the container-wide GNUPGHOME set by entrypoint.sh
   # GNUPGHOME must already be set in the environment
   export PASSWORD_STORE_DIR="$SANDBOX_HOME/.password-store"
@@ -60,8 +60,11 @@ assert_audit_entry() {
   fi
 }
 
-# Initialise the pass store using the container-wide GPG key.
+# Initialise the pass store using the container-wide GPG key and switch to
+# the pass backend.  Call this at the start of any test that exercises secrets
+# via pass (rather than the default env backend).
 init_pass_store() {
+  export AGENTS_SECRETS_BACKEND="pass"
   local key_id
   key_id=$(gpg --list-secret-keys --with-colons 2>/dev/null \
     | awk -F: '/^sec/{print $5; exit}')
