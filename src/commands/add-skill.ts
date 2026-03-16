@@ -1,16 +1,39 @@
 // src/commands/add-skill.ts
 import { join, basename, resolve } from "node:path";
-import { existsSync, symlinkSync, mkdirSync } from "node:fs";
+import { existsSync, symlinkSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import type { Command } from "commander";
 import { AGENTS_DIR } from "../lib/config";
 
 const skillsDir = join(AGENTS_DIR, "skills");
 
+export function setSkillGlobal(skillDir: string, value: boolean): void {
+  const skillMd = join(skillDir, "SKILL.md");
+  if (!existsSync(skillMd)) {
+    writeFileSync(skillMd, `---\nname: ${basename(skillDir)}\nglobal: ${value}\n---\n`);
+    return;
+  }
+  let content = readFileSync(skillMd, "utf-8");
+  if (content.match(/^---/)) {
+    if (content.match(/\nglobal:/)) {
+      // Replace existing global line
+      content = content.replace(/\nglobal: (true|false)/, `\nglobal: ${value}`);
+    } else {
+      // Inject after opening ---
+      content = content.replace(/^---\r?\n/, `---\nglobal: ${value}\n`);
+    }
+    writeFileSync(skillMd, content);
+  } else {
+    writeFileSync(skillMd, `---\nglobal: ${value}\n---\n\n` + content);
+  }
+}
+
 export function registerAddSkill(program: Command): void {
   const cmd = program
     .command("add-skill <path> [name]")
     .description("Add a local skill directory or clone from git")
-    .action(async (skillPath: string, name?: string) => {
+    .option("--global", "Mark skill as global — will be synced to all providers")
+    .action(async (skillPath: string, name?: string, opts?: { global?: boolean }) => {
+      const makeGlobal = opts?.global ?? false;
       const isGit = skillPath.startsWith("http") || skillPath.startsWith("git@");
 
       mkdirSync(skillsDir, { recursive: true });
@@ -21,6 +44,7 @@ export function registerAddSkill(program: Command): void {
         if (existsSync(dest)) { console.log(`Skill '${repoName}' already exists.`); return; }
         const proc = Bun.spawn(["git", "clone", skillPath, dest], { stdout: "inherit", stderr: "inherit" });
         if ((await proc.exited) !== 0) { console.error("git clone failed"); process.exit(1); }
+        setSkillGlobal(dest, makeGlobal);
         console.log(`Cloned skill: ${repoName}`);
       } else {
         const abs = resolve(skillPath);
@@ -32,6 +56,7 @@ export function registerAddSkill(program: Command): void {
           return;
         }
         symlinkSync(abs, dest);
+        setSkillGlobal(dest, makeGlobal);
         console.log(`Linked skill: ${skillName} → ${abs}`);
       }
       console.log("Run 'vakt sync' to push to providers.");
