@@ -9,7 +9,7 @@ setup() {
   agentctl init
 
   # Add a fast stdio test server (/bin/cat echoes stdin back as stdout)
-  agentctl add-server vakt-test /bin/cat
+  agentctl add-server vakt-test /bin/cat --global
 
   # Write a policy: deny dangerous_tool, allow everything else
   cat > "$AGENTS_DIR/policy.json" << 'EOF'
@@ -194,7 +194,7 @@ assert 'vakt-test' in server.get('args', []), 'expected server name in args'
 
 @test "sync --with-proxy leaves HTTP servers unwrapped" {
   # Add an HTTP server
-  agentctl add-server http-api --http https://api.example.com/mcp
+  agentctl add-server http-api --http https://api.example.com/mcp --global
 
   local bin_dir="$HOME/bin"
   mkdir -p "$bin_dir"

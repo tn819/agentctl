@@ -214,7 +214,7 @@ PYEOF
   local cursor_config="$HOME/.cursor/mcp.json"
   mkdir -p "$(dirname "$cursor_config")"
 
-  agentctl add-server test-server npx -y test-mcp
+  agentctl add-server test-server npx -y test-mcp --global
 
   run agentctl sync
 
@@ -263,7 +263,7 @@ sys.exit(0 if data.endswith(b'\n') else 1)
   mkdir -p "$(dirname "$cursor_config")"
   echo '{"someOtherKey": {"nested": true}, "mcpServers": {}}' > "$cursor_config"
 
-  agentctl add-server test-server npx -y test-mcp
+  agentctl add-server test-server npx -y test-mcp --global
 
   run agentctl sync
   [ "$status" -eq 0 ]
@@ -290,7 +290,7 @@ assert 'test-server' in cfg['mcpServers']
   mkdir -p "$(dirname "$cursor_config")"
 
   # Add server with a secret ref that has no corresponding secret set
-  agentctl add-server secret-server npx -y secret-mcp
+  agentctl add-server secret-server npx -y secret-mcp --global
   python3 -c "
 import json
 with open('$AGENTS_DIR/mcp-config.json') as f:
@@ -315,7 +315,7 @@ assert val != '', 'secret ref was replaced with empty string'
 }
 
 @test "sync warns about missing secrets but does not fail" {
-  agentctl add-server secret-server npx -y secret-mcp
+  agentctl add-server secret-server npx -y secret-mcp --global
   python3 -c "
 import json
 with open('$AGENTS_DIR/mcp-config.json') as f:
