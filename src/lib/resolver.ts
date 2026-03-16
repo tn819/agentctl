@@ -4,6 +4,7 @@ import { parse as parseToml } from "smol-toml";
 import type { McpConfig, McpServer, Provider, StdioServer, HttpServer } from "./schemas";
 import { expandPaths } from "./config";
 import { resolveSecretRefs } from "./secrets";
+import { isSkillGlobal } from "./skills";
 
 export type ResolvedServer = McpServer;
 export type ResolvedConfig = Record<string, ResolvedServer>;
@@ -221,7 +222,8 @@ export async function writeTomlConfig(
 export function syncSkills(
   skillsSource: string,
   skillsTarget: string,
-  dryRun: boolean
+  dryRun: boolean,
+  globalOnly = true,
 ): { linked: string[]; skipped: string[]; errors: string[] } {
   const linked: string[] = [];
   const skipped: string[] = [];
@@ -233,6 +235,7 @@ export function syncSkills(
   for (const entry of readdirSync(skillsSource)) {
     const dest = join(skillsTarget, entry);
     const src = join(skillsSource, entry);
+    if (globalOnly && !isSkillGlobal(src)) continue;
     if (existsSync(dest)) { skipped.push(entry); continue; }
     if (!dryRun) {
       try { symlinkSync(src, dest); linked.push(entry); }

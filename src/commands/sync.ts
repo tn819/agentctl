@@ -161,7 +161,8 @@ async function syncMcpServers(
 async function syncSkillsToProviders(
   providers: Provider[],
   agentsDir: string,
-  dryRun: boolean
+  dryRun: boolean,
+  globalOnly = true,
 ): Promise<void> {
   console.log(`\n${bold("── Skills ──────────────────────────────────────────────────")}`);
   const skillsSource = join(agentsDir, "skills");
@@ -179,7 +180,7 @@ async function syncSkillsToProviders(
 
     if (!skillsTarget) continue;
     console.log(`\n  ${bold(provider.displayName)}  ${dim(`(${skillsTarget})`)}`);
-    const { linked, skipped, errors } = syncSkills(skillsSource, skillsTarget, dryRun);
+    const { linked, skipped, errors } = syncSkills(skillsSource, skillsTarget, dryRun, globalOnly);
     for (const s of linked) ok(`linked skill: ${s}`);
     for (const s of skipped) info(`skipped (exists): ${s}`);
     for (const e of errors) err(e);
@@ -230,7 +231,7 @@ export function registerSync(program: Command): void {
       }
 
       if (!mcpOnly) {
-        await syncSkillsToProviders(enabledProviders, agentsDir, dryRun);
+        await syncSkillsToProviders(enabledProviders, agentsDir, dryRun, !all);
       }
 
       // Record sync event in audit log
