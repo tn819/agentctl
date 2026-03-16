@@ -14,7 +14,11 @@ export async function promptBoolean(question: string, defaultValue = false, _rea
   return line.trim().toLowerCase() === "y";
 }
 
-async function readLine(): Promise<string | null> {
+/**
+ * Read a single line from a readable stream.
+ * Exported for testing with mock streams.
+ */
+export function readLineFromStream(stream: NodeJS.ReadableStream): Promise<string | null> {
   return new Promise((resolve) => {
     let data = "";
     const onData = (chunk: Buffer) => {
@@ -24,15 +28,18 @@ async function readLine(): Promise<string | null> {
         data += text;
       } else {
         data += text.slice(0, newline);
-        process.stdin.off("data", onData);
-        process.stdin.off("end", onEnd);
-        process.stdin.pause();
+        stream.off("data", onData);
+        stream.off("end", onEnd);
         resolve(data);
       }
     };
     const onEnd = () => resolve(data.length > 0 ? data : null);
-    process.stdin.resume();
-    process.stdin.on("data", onData); // NOSONAR — intentional stdin read for interactive prompt
-    process.stdin.on("end", onEnd);
+    stream.on("data", onData);
+    stream.on("end", onEnd);
   });
+}
+
+function readLine(): Promise<string | null> {
+  process.stdin.resume(); // NOSONAR — intentional stdin read for interactive prompt
+  return readLineFromStream(process.stdin);
 }

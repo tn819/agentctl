@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { promptBoolean } from "./prompt";
+import { PassThrough } from "node:stream";
+import { promptBoolean, readLineFromStream } from "./prompt";
 
 describe("promptBoolean", () => {
   test("returns true when user enters 'y'", async () => {
@@ -40,5 +41,44 @@ describe("promptBoolean", () => {
   test("trims whitespace from input", async () => {
     const result = await promptBoolean("Question?", false, async () => "  y  ");
     expect(result).toBe(true);
+  });
+});
+
+describe("readLineFromStream", () => {
+  test("reads a line up to newline", async () => {
+    const stream = new PassThrough();
+    const p = readLineFromStream(stream);
+    stream.write("hello\n");
+    expect(await p).toBe("hello");
+  });
+
+  test("accumulates multi-chunk data before newline", async () => {
+    const stream = new PassThrough();
+    const p = readLineFromStream(stream);
+    stream.write("hel");
+    stream.write("lo\n");
+    expect(await p).toBe("hello");
+  });
+
+  test("returns null on empty EOF", async () => {
+    const stream = new PassThrough();
+    const p = readLineFromStream(stream);
+    stream.end();
+    expect(await p).toBeNull();
+  });
+
+  test("returns partial data on EOF without newline", async () => {
+    const stream = new PassThrough();
+    const p = readLineFromStream(stream);
+    stream.write("no newline");
+    stream.end();
+    expect(await p).toBe("no newline");
+  });
+
+  test("returns only first line when multiple lines sent", async () => {
+    const stream = new PassThrough();
+    const p = readLineFromStream(stream);
+    stream.write("first\nsecond");
+    expect(await p).toBe("first");
   });
 });
