@@ -24,7 +24,7 @@ else
 fi
 
 ROTATION_DAYS=$(grep -o '"rotation_days":[0-9]*' "$PROFILE_FILE" 2>/dev/null | cut -d: -f2 || echo "90")
-SERVICE_NAME=$(grep -o '"service_name":"[^"]*"' "$PROFILE_FILE" 2>/dev/null | cut -d'"' -f4 || echo "agentctl")
+SERVICE_NAME=$(grep -o '"service_name":"[^"]*"' "$PROFILE_FILE" 2>/dev/null | cut -d'"' -f4 || echo "vakt")
 
 run_check() {
   local check_name="$1"

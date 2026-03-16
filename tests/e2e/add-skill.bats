@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl add-skill command
+# End-to-end tests for vakt add-skill command
 
 load '../test_helper'
 
 setup() {
   setup_test_env
-  agentctl init
+  vakt init
 
   # Use a named subdir so the skill name is predictable ("test-skill")
   TEST_SKILL_BASE="$(mktemp -d)"
@@ -20,7 +20,7 @@ teardown() {
 }
 
 @test "add-skill links local skill directory" {
-  run agentctl add-skill "$TEST_SKILL_DIR"
+  run vakt add-skill "$TEST_SKILL_DIR"
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Linked skill: test-skill"* ]]
@@ -30,7 +30,7 @@ teardown() {
 }
 
 @test "add-skill with custom name" {
-  run agentctl add-skill "$TEST_SKILL_DIR" custom-name
+  run vakt add-skill "$TEST_SKILL_DIR" custom-name
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Linked skill: custom-name"* ]]
@@ -39,29 +39,29 @@ teardown() {
 }
 
 @test "add-skill requires path argument" {
-  run agentctl add-skill
+  run vakt add-skill
   
   [ "$status" -eq 1 ]
   [[ "$output" == *"Usage"* ]]
 }
 
 @test "add-skill fails for non-existent path" {
-  run agentctl add-skill "/non/existent/path"
+  run vakt add-skill "/non/existent/path"
   
   [ "$status" -eq 1 ]
 }
 
 @test "add-skill detects already linked skill" {
-  agentctl add-skill "$TEST_SKILL_DIR"
+  vakt add-skill "$TEST_SKILL_DIR"
   
-  run agentctl add-skill "$TEST_SKILL_DIR"
+  run vakt add-skill "$TEST_SKILL_DIR"
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"already linked"* ]]
 }
 
 @test "add-skill shows sync reminder" {
-  run agentctl add-skill "$TEST_SKILL_DIR"
+  run vakt add-skill "$TEST_SKILL_DIR"
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Run 'vakt sync'"* ]]
@@ -70,7 +70,7 @@ teardown() {
 @test "add-skill creates skills directory if needed" {
   rm -rf "$AGENTS_DIR/skills"
   
-  run agentctl add-skill "$TEST_SKILL_DIR"
+  run vakt add-skill "$TEST_SKILL_DIR"
   
   [ "$status" -eq 0 ]
   assert_dir_exists "$AGENTS_DIR/skills"
@@ -80,7 +80,7 @@ teardown() {
   cd "$(dirname "$TEST_SKILL_DIR")"
   local relative_path="./$(basename "$TEST_SKILL_DIR")"
   
-  run agentctl add-skill "$relative_path"
+  run vakt add-skill "$relative_path"
   
   [ "$status" -eq 0 ]
   
@@ -93,7 +93,7 @@ teardown() {
   mkdir -p "$hyphen_skill"
   create_test_skill "$hyphen_skill" "my-test-skill"
 
-  run agentctl add-skill "$hyphen_skill"
+  run vakt add-skill "$hyphen_skill"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Linked skill: my-test-skill"* ]]
@@ -104,7 +104,7 @@ teardown() {
 @test "add-skill git clone from URL" {
   skip "Requires network access and git repository"
   
-  run agentctl add-skill https://github.com/example/skill-repo test-skill-from-git
+  run vakt add-skill https://github.com/example/skill-repo test-skill-from-git
   
   [ "$status" -eq 0 ]
   assert_dir_exists "$AGENTS_DIR/skills/test-skill-from-git"
@@ -113,16 +113,16 @@ teardown() {
 @test "add-skill git clone fails if skill exists" {
   skip "Requires network access and git repository"
   
-  agentctl add-skill https://github.com/example/skill-repo existing-skill
+  vakt add-skill https://github.com/example/skill-repo existing-skill
   
-  run agentctl add-skill https://github.com/example/skill-repo existing-skill
+  run vakt add-skill https://github.com/example/skill-repo existing-skill
   
   [ "$status" -eq 1 ]
   [[ "$output" == *"already exists"* ]]
 }
 
 @test "add-skill preserves skill SKILL.md file" {
-  agentctl add-skill "$TEST_SKILL_DIR"
+  vakt add-skill "$TEST_SKILL_DIR"
   
   assert_file_exists "$AGENTS_DIR/skills/test-skill/SKILL.md"
   assert_file_contains "$AGENTS_DIR/skills/test-skill/SKILL.md" "test-skill"
@@ -135,7 +135,7 @@ teardown() {
   mkdir -p "$skill_path"
   create_test_skill "$skill_path" "prompt-global-skill"
 
-  run bash -c "echo 'y' | '$AGENTCTL' add-skill '$skill_path' prompt-global-skill"
+  run bash -c "echo 'y' | '$VAKT' add-skill '$skill_path' prompt-global-skill"
   [ "$status" -eq 0 ]
 
   local skill_md="$AGENTS_DIR/skills/prompt-global-skill/SKILL.md"
@@ -152,7 +152,7 @@ teardown() {
   mkdir -p "$skill_path"
   create_test_skill "$skill_path" "prompt-local-skill"
 
-  run bash -c "echo 'n' | '$AGENTCTL' add-skill '$skill_path' prompt-local-skill"
+  run bash -c "echo 'n' | '$VAKT' add-skill '$skill_path' prompt-local-skill"
   [ "$status" -eq 0 ]
 
   local skill_md="$AGENTS_DIR/skills/prompt-local-skill/SKILL.md"

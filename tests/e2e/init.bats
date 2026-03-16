@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl init command
+# End-to-end tests for vakt init command
 
 load '../test_helper'
 
@@ -12,7 +12,7 @@ teardown() {
 }
 
 @test "init creates ~/.agents/ directory structure" {
-  run agentctl init
+  run vakt init
   
   [ "$status" -eq 0 ]
   assert_dir_exists "$AGENTS_DIR"
@@ -20,7 +20,7 @@ teardown() {
 }
 
 @test "init creates default config files" {
-  run agentctl init
+  run vakt init
   
   [ "$status" -eq 0 ]
   assert_file_exists "$AGENTS_DIR/config.json"
@@ -29,7 +29,7 @@ teardown() {
 }
 
 @test "init config.json has correct structure" {
-  agentctl init
+  vakt init
   
   assert_json_key_exists "$AGENTS_DIR/config.json" "paths"
   assert_json_key_exists "$AGENTS_DIR/config.json" "providers"
@@ -37,13 +37,13 @@ teardown() {
 }
 
 @test "init mcp-config.json has default servers" {
-  agentctl init
+  vakt init
   
   assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "github"
 }
 
 @test "init config.json has correct default paths" {
-  agentctl init
+  vakt init
   
   assert_json_equals "$AGENTS_DIR/config.json" "['paths']['code']" "~/Code"
   assert_json_equals "$AGENTS_DIR/config.json" "['paths']['documents']" "~/Documents"
@@ -51,7 +51,7 @@ teardown() {
 }
 
 @test "init shows success message with checkmarks" {
-  run agentctl init
+  run vakt init
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"✓"* ]]
@@ -59,15 +59,15 @@ teardown() {
 }
 
 @test "init prompts before overwriting existing directory" {
-  agentctl init
-  run agentctl init <<< "n"
+  vakt init
+  run vakt init <<< "n"
   
   [ "$status" -eq 1 ]
   [[ "$output" == *"already exists"* ]]
 }
 
 @test "init --dry-run shows what would be created" {
-  run agentctl init --dry-run
+  run vakt init --dry-run
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"dry-run"* ]]
@@ -76,30 +76,30 @@ teardown() {
 }
 
 @test "init can overwrite existing directory when confirmed" {
-  agentctl init
+  vakt init
   echo "modified" > "$AGENTS_DIR/config.json"
   
-  run agentctl init <<< "y"
+  run vakt init <<< "y"
   
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" '"paths"'
 }
 
 @test "init AGENTS.md has correct content" {
-  agentctl init
+  vakt init
   
   assert_file_contains "$AGENTS_DIR/AGENTS.md" "Agent Standards"
   assert_file_contains "$AGENTS_DIR/AGENTS.md" "~/.agents/skills/"
 }
 
 @test "init creates skills directory" {
-  agentctl init
+  vakt init
 
   assert_dir_exists "$AGENTS_DIR/skills"
 }
 
 @test "init outputs next steps" {
-  run agentctl init
+  run vakt init
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Next steps"* ]]

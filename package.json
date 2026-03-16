@@ -14,7 +14,7 @@
     "lint:md": "markdownlint-cli2 \"docs/adr/**/*.md\"",
     "lint:adr": "bun run scripts/check-adrs.ts",
     "lint:docs": "bun run lint:md && bun run lint:adr",
-    "pretest": "chmod +x src/agentctl.sh",
+    "pretest": "chmod +x src/vakt.sh",
     "prepare": "husky"
   },
   "devDependencies": {

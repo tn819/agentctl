@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# One-line installer for agentctl
-# Usage: curl -fsSL https://raw.githubusercontent.com/yourorg/agentctl/main/install.sh | bash
+# One-line installer for vakt
+# Usage: curl -fsSL https://raw.githubusercontent.com/yourorg/vakt/main/install.sh | bash
 
 set -euo pipefail
 
-REPO_URL="https://github.com/yourorg/agentctl"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.agentctl}"
+REPO_URL="https://github.com/yourorg/vakt"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.vakt}"
 AGENTS_DIR="${AGENTS_DIR:-$HOME/.agents}"
 
 BOLD='\033[1m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'
@@ -15,7 +15,7 @@ ok()   { echo -e "${GREEN}✓${RESET} $*"; }
 info() { echo -e "${CYAN}→${RESET} $*"; }
 
 echo ""
-echo -e "${BOLD}agentctl installer${RESET}"
+echo -e "${BOLD}vakt installer${RESET}"
 echo ""
 
 check_deps() {
@@ -42,7 +42,7 @@ install() {
   ok "Dependencies satisfied"
   
   echo ""
-  info "Installing agentctl..."
+  info "Installing vakt..."
   
   if [[ -d "$INSTALL_DIR" ]]; then
     info "Updating existing installation..."
@@ -56,9 +56,9 @@ install() {
   echo ""
   info "Setting up CLI..."
   
-  local bin_link="/usr/local/bin/agentctl"
+  local bin_link="/usr/local/bin/vakt"
   if [[ -w "/usr/local/bin" ]]; then
-    ln -sf "$INSTALL_DIR/src/agentctl.sh" "$bin_link"
+    ln -sf "$INSTALL_DIR/src/vakt.sh" "$bin_link"
     ok "Linked CLI to $bin_link"
   else
     echo ""
@@ -66,7 +66,7 @@ install() {
     echo -e "  ${DIM}export PATH=\"\$PATH:$INSTALL_DIR/src\"${RESET}"
     echo ""
     echo "Or run:"
-    echo -e "  ${DIM}sudo ln -s $INSTALL_DIR/src/agentctl.sh /usr/local/bin/agentctl${RESET}"
+    echo -e "  ${DIM}sudo ln -s $INSTALL_DIR/src/vakt.sh /usr/local/bin/vakt${RESET}"
   fi
   
   echo ""
@@ -80,12 +80,12 @@ install() {
     esac
     if [[ -d "$(dirname "$comp_dir")" ]]; then
       mkdir -p "$comp_dir"
-      cat > "$comp_dir/agentctl" << 'COMPLETION'
+      cat > "$comp_dir/vakt" << 'COMPLETION'
 _agents_mcp_completion() {
   local cur prev words cword
   _init_completion || return
   case $prev in
-    agentctl)
+    vakt)
       COMPREPLY=($(compgen -W "init sync secrets config add-server add-skill list upgrade" -- "$cur"))
       ;;
     secrets)
@@ -96,7 +96,7 @@ _agents_mcp_completion() {
       ;;
   esac
 }
-complete -F _agents_mcp_completion agentctl
+complete -F _agents_mcp_completion vakt
 COMPLETION
       ok "Installed $shell completion"
     fi
@@ -108,22 +108,22 @@ COMPLETION
   echo "Next steps:"
   echo ""
   echo "  1. Initialize:"
-  echo -e "     ${CYAN}agentctl init${RESET}"
+  echo -e "     ${CYAN}vakt init${RESET}"
   echo ""
   echo "  2. Configure paths in ~/.agents/config.json"
   echo ""
   echo "  3. Add your secrets:"
-  echo -e "     ${CYAN}agentctl secrets${RESET}"
+  echo -e "     ${CYAN}vakt secrets${RESET}"
   echo ""
   echo "  4. Sync to all providers:"
-  echo -e "     ${CYAN}agentctl sync${RESET}"
+  echo -e "     ${CYAN}vakt sync${RESET}"
   echo ""
 }
 
 uninstall() {
-  echo "Uninstalling agentctl..."
+  echo "Uninstalling vakt..."
   rm -rf "$INSTALL_DIR"
-  rm -f "/usr/local/bin/agentctl"
+  rm -f "/usr/local/bin/vakt"
   echo "Done. Your ~/.agents/ directory was preserved."
 }
 

@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release of agentctl
+- Initial release of vakt
 - Core CLI commands: `init`, `sync`, `secrets`, `config`, `add-server`, `add-skill`, `list`
 - Cross-platform secrets management (macOS Keychain, Linux pass, env fallback)
 - Path templating system (`{{paths.code}}`)
@@ -53,4 +53,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration workflow tests
 - Security and lint checks in CI
 
-[0.0.1]: https://github.com/yourorg/agentctl/releases/tag/v0.0.1
+[0.0.1]: https://github.com/yourorg/vakt/releases/tag/v0.0.1

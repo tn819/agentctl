@@ -5,7 +5,7 @@ description: Helps users discover and install agent skills when they ask questio
 
 # Find Skills
 
-This skill helps you discover and install skills using agentctl's provider-agnostic approach.
+This skill helps you discover and install skills using vakt's provider-agnostic approach.
 
 ## When to Use This Skill
 
@@ -20,15 +20,15 @@ Use this skill when the user:
 
 ## Provider-Agnostic Skill Installation
 
-agentctl manages skills in a single location (`~/.agents/skills/`) and syncs them to all AI coding tools (Claude Code, OpenCode, Gemini CLI, Codex, etc.).
+vakt manages skills in a single location (`~/.agents/skills/`) and syncs them to all AI coding tools (Claude Code, OpenCode, Gemini CLI, Codex, etc.).
 
 **Key commands:**
 
 ```bash
-agentctl add-skill <repo-url>           # Install from git repository
-agentctl add-skill ./local-skill        # Install from local directory
-agentctl sync                            # Sync to all providers
-agentctl list                            # List installed skills
+vakt add-skill <repo-url>           # Install from git repository
+vakt add-skill ./local-skill        # Install from local directory
+vakt sync                            # Sync to all providers
+vakt list                            # List installed skills
 ```
 
 ## How to Help Users Find Skills
@@ -75,25 +75,25 @@ I found a skill that might help! The "react-best-practices" skill provides
 React and Next.js performance optimization guidelines from Vercel Engineering.
 
 To install it:
-agentctl add-skill https://github.com/vercel-labs/agent-skills
+vakt add-skill https://github.com/vercel-labs/agent-skills
 
 Then sync to all your AI tools:
-agentctl sync
+vakt sync
 ```
 
 ### Step 4: Install the Skill
 
-Install skills using agentctl:
+Install skills using vakt:
 
 ```bash
 # From a git repository
-agentctl add-skill https://github.com/owner/skill-repo
+vakt add-skill https://github.com/owner/skill-repo
 
 # From a specific subdirectory in a repo (for multi-skill repos)
-agentctl add-skill https://github.com/vercel-labs/agent-skills react-best-practices
+vakt add-skill https://github.com/vercel-labs/agent-skills react-best-practices
 
 # From a local directory (during development)
-agentctl add-skill ./my-skill
+vakt add-skill ./my-skill
 ```
 
 ### Step 5: Sync to All Providers
@@ -101,7 +101,7 @@ agentctl add-skill ./my-skill
 After installing, sync to make the skill available across all AI tools:
 
 ```bash
-agentctl sync
+vakt sync
 ```
 
 This creates symlinks in each provider's skills directory:
@@ -140,7 +140,7 @@ If no relevant skills exist:
 
 1. Acknowledge that no existing skill was found
 2. Offer to help with the task directly using your general capabilities
-3. Suggest the user could create their own skill with `agentctl` and the `skill-creator` skill
+3. Suggest the user could create their own skill with `vakt` and the `skill-creator` skill
 
 Example:
 
@@ -157,7 +157,7 @@ Just say "create a skill for X" and I'll help you build one.
 After installing and syncing, verify the skill is available:
 
 ```bash
-agentctl list
+vakt list
 ```
 
 This shows all installed skills and which providers they're synced to.
@@ -168,17 +168,17 @@ This shows all installed skills and which providers they're synced to.
 
 ```bash
 # Re-sync to all providers
-agentctl sync
+vakt sync
 
 # Check skill is installed
-agentctl list
+vakt list
 ```
 
 **Skill from multi-skill repo not installing:**
 
 ```bash
 # Specify the skill name after the repo URL
-agentctl add-skill https://github.com/owner/multi-skill-repo skill-name
+vakt add-skill https://github.com/owner/multi-skill-repo skill-name
 ```
 
 **Updating a skill:**
@@ -186,6 +186,6 @@ agentctl add-skill https://github.com/owner/multi-skill-repo skill-name
 ```bash
 # Remove and reinstall
 rm -rf ~/.agents/skills/skill-name
-agentctl add-skill https://github.com/owner/skill-repo
-agentctl sync
+vakt add-skill https://github.com/owner/skill-repo
+vakt sync
 ```

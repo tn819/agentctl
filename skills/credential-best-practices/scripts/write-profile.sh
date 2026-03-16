@@ -8,7 +8,7 @@
 set -euo pipefail
 
 STORE=""
-SERVICE_NAME="${SERVICE_NAME:-agentctl}"
+SERVICE_NAME="${SERVICE_NAME:-vakt}"
 ROTATION_DAYS="${ROTATION_DAYS:-90}"
 CREDENTIAL_NAMES="${CREDENTIAL_NAMES:-}"
 OUTPUT="$HOME/.agents/credential-profile.json"

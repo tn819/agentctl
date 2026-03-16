@@ -102,8 +102,8 @@ Scans the current git repository for hardcoded credential patterns:
 **Rotation overdue:**
 ```bash
 # macOS Keychain — delete and re-add
-security delete-generic-password -s agentctl -a MY_KEY
-security add-generic-password -s agentctl -a MY_KEY -w
+security delete-generic-password -s vakt -a MY_KEY
+security add-generic-password -s vakt -a MY_KEY -w
 ```
 
 **Found in shell history:**
