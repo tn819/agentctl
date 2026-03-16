@@ -10,7 +10,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -20,38 +20,38 @@ teardown() {
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 @test "runtime config: set e2b api key reference" {
-  run agentctl config set runtime.e2b.api_key secret:E2B_API_KEY
+  run vakt config set runtime.e2b.api_key secret:E2B_API_KEY
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.e2b.api_key
+  run vakt config get runtime.e2b.api_key
   [ "$status" -eq 0 ]
   [[ "$output" == *"E2B_API_KEY"* ]]
 }
 
 @test "runtime config: set server routing to e2b" {
-  agentctl add-server my-server npx some-mcp-server
+  vakt add-server my-server npx some-mcp-server
 
-  run agentctl runtime set my-server e2b
+  run vakt runtime set my-server e2b
   [ "$status" -eq 0 ]
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-server"* ]]
   [[ "$output" == *"e2b"* ]]
 }
 
 @test "runtime config: set optional template" {
-  run agentctl config set runtime.e2b.template my-agent-template
+  run vakt config set runtime.e2b.template my-agent-template
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.e2b.template
+  run vakt config get runtime.e2b.template
   [ "$output" = "my-agent-template" ]
 }
 
 @test "runtime list shows local as default when no routing set" {
-  agentctl add-server another-server npx some-mcp-server
+  vakt add-server another-server npx some-mcp-server
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"local"* ]]
 }
@@ -65,9 +65,9 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   set_test_secret E2B_API_KEY "$E2B_API_KEY"
-  agentctl config set runtime.e2b.api_key secret:E2B_API_KEY
+  vakt config set runtime.e2b.api_key secret:E2B_API_KEY
 
-  run agentctl agent start --provider e2b
+  run vakt agent start --provider e2b
   [ "$status" -eq 0 ]
   [[ "$output" == *"session"* ]] || [[ "$output" == *"sandbox"* ]]
 }
@@ -79,13 +79,13 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider e2b --format id)
+  session_id=$(vakt agent start --provider e2b --format id)
 
-  run agentctl agent exec "$session_id" "node --version"
+  run vakt agent exec "$session_id" "node --version"
   [ "$status" -eq 0 ]
   [[ "$output" == v* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent audit: E2B tool calls recorded in audit.db" {
@@ -95,14 +95,14 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider e2b --format id)
-  agentctl agent exec "$session_id" "echo hello"
+  session_id=$(vakt agent start --provider e2b --format id)
+  vakt agent exec "$session_id" "echo hello"
 
-  run agentctl audit show
+  run vakt audit show
   [ "$status" -eq 0 ]
   [[ "$output" == *"e2b"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent destroy: E2B sandbox is removed after session ends" {
@@ -112,8 +112,8 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider e2b --format id)
+  session_id=$(vakt agent start --provider e2b --format id)
 
-  run agentctl agent destroy "$session_id"
+  run vakt agent destroy "$session_id"
   [ "$status" -eq 0 ]
 }

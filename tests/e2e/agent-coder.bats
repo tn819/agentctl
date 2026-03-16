@@ -13,7 +13,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -23,58 +23,58 @@ teardown() {
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 @test "runtime config: set coder url reference" {
-  run agentctl config set runtime.coder.url secret:CODER_URL
+  run vakt config set runtime.coder.url secret:CODER_URL
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.coder.url
+  run vakt config get runtime.coder.url
   [[ "$output" == *"CODER_URL"* ]]
 }
 
 @test "runtime config: set coder token reference" {
-  run agentctl config set runtime.coder.token secret:CODER_TOKEN
+  run vakt config set runtime.coder.token secret:CODER_TOKEN
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.coder.token
+  run vakt config get runtime.coder.token
   [[ "$output" == *"CODER_TOKEN"* ]]
 }
 
 @test "runtime config: set coder org" {
-  run agentctl config set runtime.coder.org default
+  run vakt config set runtime.coder.org default
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.coder.org
+  run vakt config get runtime.coder.org
   [ "$output" = "default" ]
 }
 
 @test "runtime config: set coder workspace template" {
-  run agentctl config set runtime.coder.template my-agent-template
+  run vakt config set runtime.coder.template my-agent-template
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.coder.template
+  run vakt config get runtime.coder.template
   [ "$output" = "my-agent-template" ]
 }
 
 @test "runtime config: stop_after_session defaults to false" {
-  run agentctl config get runtime.coder.stop_after_session
+  run vakt config get runtime.coder.stop_after_session
   # unset → false or empty is acceptable
   [ "$status" -eq 0 ]
 }
 
 @test "runtime config: set stop_after_session true" {
-  run agentctl config set runtime.coder.stop_after_session true
+  run vakt config set runtime.coder.stop_after_session true
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.coder.stop_after_session
+  run vakt config get runtime.coder.stop_after_session
   [ "$output" = "true" ]
 }
 
 @test "runtime config: route server to coder" {
-  agentctl add-server my-coder npx some-mcp-server
+  vakt add-server my-coder npx some-mcp-server
 
-  run agentctl runtime set my-coder coder
+  run vakt runtime set my-coder coder
   [ "$status" -eq 0 ]
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-coder"* ]]
   [[ "$output" == *"coder"* ]]
@@ -109,12 +109,12 @@ teardown() {
 
   set_test_secret CODER_URL   "$CODER_URL"
   set_test_secret CODER_TOKEN "$CODER_TOKEN"
-  agentctl config set runtime.coder.url   secret:CODER_URL
-  agentctl config set runtime.coder.token secret:CODER_TOKEN
-  agentctl config set runtime.coder.org      default
-  agentctl config set runtime.coder.template "${CODER_TEMPLATE:-docker-workspace}"
+  vakt config set runtime.coder.url   secret:CODER_URL
+  vakt config set runtime.coder.token secret:CODER_TOKEN
+  vakt config set runtime.coder.org      default
+  vakt config set runtime.coder.template "${CODER_TEMPLATE:-docker-workspace}"
 
-  run agentctl agent start --provider coder
+  run vakt agent start --provider coder
   [ "$status" -eq 0 ]
   [[ "$output" == *"session"* ]] || [[ "$output" == *"workspace"* ]]
 }
@@ -127,13 +127,13 @@ teardown() {
 
   # Start, stop, start again — should re-attach, not create a second workspace
   local session1 session2
-  session1=$(agentctl agent start --provider coder --name test-idempotent --format id)
-  agentctl agent destroy --stop-only "$session1"   # stop, don't delete
-  session2=$(agentctl agent start --provider coder --name test-idempotent --format id)
+  session1=$(vakt agent start --provider coder --name test-idempotent --format id)
+  vakt agent destroy --stop-only "$session1"   # stop, don't delete
+  session2=$(vakt agent start --provider coder --name test-idempotent --format id)
 
   # Both sessions should reference the same underlying workspace
   [ "$session1" = "$session2" ]
-  agentctl agent destroy "$session2"
+  vakt agent destroy "$session2"
 }
 
 @test "agent exec: runs command in Coder workspace" {
@@ -143,13 +143,13 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider coder --format id)
+  session_id=$(vakt agent start --provider coder --format id)
 
-  run agentctl agent exec "$session_id" "node --version"
+  run vakt agent exec "$session_id" "node --version"
   [ "$status" -eq 0 ]
   [[ "$output" == v* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent exec: workspace state persists across exec calls" {
@@ -159,16 +159,16 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider coder --format id)
+  session_id=$(vakt agent start --provider coder --format id)
 
   # Write a file in one exec, read it back in the next — state must persist
-  agentctl agent exec "$session_id" "sh -c 'echo vakt-persist > /tmp/state.txt'"
+  vakt agent exec "$session_id" "sh -c 'echo vakt-persist > /tmp/state.txt'"
 
-  run agentctl agent exec "$session_id" "cat /tmp/state.txt"
+  run vakt agent exec "$session_id" "cat /tmp/state.txt"
   [ "$status" -eq 0 ]
   [[ "$output" == *"vakt-persist"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent destroy --stop-only: workspace is stopped but not deleted" {
@@ -178,9 +178,9 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider coder --format id)
+  session_id=$(vakt agent start --provider coder --format id)
 
-  run agentctl agent destroy --stop-only "$session_id"
+  run vakt agent destroy --stop-only "$session_id"
   [ "$status" -eq 0 ]
 
   # Workspace should still exist in stopped state
@@ -197,9 +197,9 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider coder --format id)
+  session_id=$(vakt agent start --provider coder --format id)
 
-  run agentctl agent destroy "$session_id"
+  run vakt agent destroy "$session_id"
   [ "$status" -eq 0 ]
 
   # Workspace should no longer exist
@@ -215,12 +215,12 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider coder --format id)
-  agentctl agent exec "$session_id" "echo audit-test"
+  session_id=$(vakt agent start --provider coder --format id)
+  vakt agent exec "$session_id" "echo audit-test"
 
-  run agentctl audit show
+  run vakt audit show
   [ "$status" -eq 0 ]
   [[ "$output" == *"coder"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }

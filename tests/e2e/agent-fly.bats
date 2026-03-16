@@ -10,7 +10,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -20,36 +20,36 @@ teardown() {
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 @test "runtime config: set fly api token reference" {
-  run agentctl config set runtime.fly.api_token secret:FLY_API_TOKEN
+  run vakt config set runtime.fly.api_token secret:FLY_API_TOKEN
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.fly.api_token
+  run vakt config get runtime.fly.api_token
   [[ "$output" == *"FLY_API_TOKEN"* ]]
 }
 
 @test "runtime config: set fly app name" {
-  run agentctl config set runtime.fly.app vakt-agent-sandbox
+  run vakt config set runtime.fly.app vakt-agent-sandbox
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.fly.app
+  run vakt config get runtime.fly.app
   [ "$output" = "vakt-agent-sandbox" ]
 }
 
 @test "runtime config: set fly region" {
-  run agentctl config set runtime.fly.region iad
+  run vakt config set runtime.fly.region iad
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.fly.region
+  run vakt config get runtime.fly.region
   [ "$output" = "iad" ]
 }
 
 @test "runtime config: route server to fly" {
-  agentctl add-server my-coder npx some-mcp-server
+  vakt add-server my-coder npx some-mcp-server
 
-  run agentctl runtime set my-coder fly
+  run vakt runtime set my-coder fly
   [ "$status" -eq 0 ]
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-coder"* ]]
   [[ "$output" == *"fly"* ]]
@@ -77,10 +77,10 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   set_test_secret FLY_API_TOKEN "$FLY_API_TOKEN"
-  agentctl config set runtime.fly.api_token secret:FLY_API_TOKEN
-  agentctl config set runtime.fly.app "${FLY_APP:-vakt-agent-sandbox}"
+  vakt config set runtime.fly.api_token secret:FLY_API_TOKEN
+  vakt config set runtime.fly.app "${FLY_APP:-vakt-agent-sandbox}"
 
-  run agentctl agent start --provider fly
+  run vakt agent start --provider fly
   [ "$status" -eq 0 ]
   [[ "$output" == *"session"* ]] || [[ "$output" == *"machine"* ]]
 }
@@ -90,13 +90,13 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider fly --format id)
+  session_id=$(vakt agent start --provider fly --format id)
 
-  run agentctl agent exec "$session_id" "node --version"
+  run vakt agent exec "$session_id" "node --version"
   [ "$status" -eq 0 ]
   [[ "$output" == v* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent destroy: Fly Machine is stopped and removed" {
@@ -104,8 +104,8 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider fly --format id)
+  session_id=$(vakt agent start --provider fly --format id)
 
-  run agentctl agent destroy "$session_id"
+  run vakt agent destroy "$session_id"
   [ "$status" -eq 0 ]
 }

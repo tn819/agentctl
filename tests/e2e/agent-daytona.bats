@@ -10,7 +10,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -20,36 +20,36 @@ teardown() {
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 @test "runtime config: set daytona api url" {
-  run agentctl config set runtime.daytona.api_url https://app.daytona.io/api
+  run vakt config set runtime.daytona.api_url https://app.daytona.io/api
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.daytona.api_url
+  run vakt config get runtime.daytona.api_url
   [ "$output" = "https://app.daytona.io/api" ]
 }
 
 @test "runtime config: set daytona api key reference" {
-  run agentctl config set runtime.daytona.api_key secret:DAYTONA_API_KEY
+  run vakt config set runtime.daytona.api_key secret:DAYTONA_API_KEY
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.daytona.api_key
+  run vakt config get runtime.daytona.api_key
   [[ "$output" == *"DAYTONA_API_KEY"* ]]
 }
 
 @test "runtime config: set daytona workspace image" {
-  run agentctl config set runtime.daytona.image daytonaio/workspace-project:latest
+  run vakt config set runtime.daytona.image daytonaio/workspace-project:latest
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.daytona.image
+  run vakt config get runtime.daytona.image
   [ "$output" = "daytonaio/workspace-project:latest" ]
 }
 
 @test "runtime config: route server to daytona" {
-  agentctl add-server my-coder npx some-mcp-server
+  vakt add-server my-coder npx some-mcp-server
 
-  run agentctl runtime set my-coder daytona
+  run vakt runtime set my-coder daytona
   [ "$status" -eq 0 ]
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-coder"* ]]
   [[ "$output" == *"daytona"* ]]
@@ -77,10 +77,10 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   set_test_secret DAYTONA_API_KEY "$DAYTONA_API_KEY"
-  agentctl config set runtime.daytona.api_url "$DAYTONA_API_URL"
-  agentctl config set runtime.daytona.api_key secret:DAYTONA_API_KEY
+  vakt config set runtime.daytona.api_url "$DAYTONA_API_URL"
+  vakt config set runtime.daytona.api_key secret:DAYTONA_API_KEY
 
-  run agentctl agent start --provider daytona
+  run vakt agent start --provider daytona
   [ "$status" -eq 0 ]
   [[ "$output" == *"session"* ]] || [[ "$output" == *"workspace"* ]]
 }
@@ -92,13 +92,13 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider daytona --format id)
+  session_id=$(vakt agent start --provider daytona --format id)
 
-  run agentctl agent exec "$session_id" "node --version"
+  run vakt agent exec "$session_id" "node --version"
   [ "$status" -eq 0 ]
   [[ "$output" == v* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent destroy: Daytona workspace is removed after session ends" {
@@ -108,8 +108,8 @@ teardown() {
   skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
-  session_id=$(agentctl agent start --provider daytona --format id)
+  session_id=$(vakt agent start --provider daytona --format id)
 
-  run agentctl agent destroy "$session_id"
+  run vakt agent destroy "$session_id"
   [ "$status" -eq 0 ]
 }
