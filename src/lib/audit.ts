@@ -55,6 +55,18 @@ export class AuditStore {
       );
       CREATE INDEX IF NOT EXISTS idx_tc_server  ON tool_calls(server_name);
       CREATE INDEX IF NOT EXISTS idx_tc_started ON tool_calls(started_at);
+      CREATE TABLE IF NOT EXISTS sandbox_sessions (
+        id           TEXT PRIMARY KEY,
+        provider     TEXT NOT NULL,
+        container_id TEXT NOT NULL,
+        image        TEXT,
+        repo         TEXT,
+        name         TEXT,
+        status       TEXT NOT NULL DEFAULT 'running',
+        created_at   INTEGER NOT NULL,
+        closed_at    INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status);
     `);
   }
 
@@ -94,5 +106,44 @@ export class AuditStore {
     return this.db.prepare(
       "SELECT * FROM sync_events ORDER BY synced_at DESC LIMIT ?"
     ).all(limit) as any[];
+  }
+
+  createSession(opts: {
+    provider: string;
+    containerId: string;
+    image?: string;
+    repo?: string;
+    name?: string;
+  }): string {
+    const id = crypto.randomUUID();
+    this.db.prepare(`
+      INSERT INTO sandbox_sessions (id, provider, container_id, image, repo, name, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, opts.provider, opts.containerId, opts.image ?? null,
+           opts.repo ?? null, opts.name ?? null, Date.now());
+    return id;
+  }
+
+  getSession(id: string): any | null {
+    return this.db.prepare(
+      "SELECT * FROM sandbox_sessions WHERE id = ?"
+    ).get(id) as any ?? null;
+  }
+
+  listSessions(opts: { status?: string } = {}): any[] {
+    if (opts.status) {
+      return this.db.prepare(
+        "SELECT * FROM sandbox_sessions WHERE status = ? ORDER BY created_at DESC"
+      ).all(opts.status) as any[];
+    }
+    return this.db.prepare(
+      "SELECT * FROM sandbox_sessions ORDER BY created_at DESC"
+    ).all() as any[];
+  }
+
+  closeSession(id: string): void {
+    this.db.prepare(
+      "UPDATE sandbox_sessions SET status = 'closed', closed_at = ? WHERE id = ?"
+    ).run(Date.now(), id);
   }
 }
