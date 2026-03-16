@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, test, expect, beforeEach } from "bun:test";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { resolveServer, resolveAll, formatForProvider, writeJsonConfig, readTomlConfig, toToml, syncSkills, writeTomlConfig, toTomlArrayOfTables } from "./resolver";
@@ -338,6 +338,14 @@ describe("toToml", () => {
     const result = toToml({ db: { host: "localhost" } });
     expect(result).toContain("[db]");
     expect(result).toContain('host = "localhost"');
+  });
+});
+
+describe("resolveServer strips global field", () => {
+  test("global field is not included in resolved output", async () => {
+    const server = { command: "npx", args: ["-y", "test-mcp"], global: true };
+    const { server: resolved } = await resolveServer("test", server as any, {});
+    expect("global" in resolved).toBe(false);
   });
 });
 
