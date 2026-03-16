@@ -227,6 +227,17 @@ export const PolicySchema = z.object({
   registryPolicy: z.enum(["allow-unverified", "warn-unverified", "registry-only"])
     .default("allow-unverified"),
   servers: z.record(z.string(), PolicyServerRulesSchema).optional(),
+  skills: z.object({
+    /**
+     * Unscoped skills (no `allowed-tools`) become gate errors instead of warnings.
+     */
+    scopeRequired: z.boolean().default(false),
+    /**
+     * Skills with static hazard findings (curl-pipe-sh, eval-exec, etc.)
+     * become gate errors instead of warnings.
+     */
+    blockOnHazards: z.boolean().default(false),
+  }).optional(),
   _meta: z.object({
     lockedKeys: z.array(z.string()).optional(),
   }).optional(),

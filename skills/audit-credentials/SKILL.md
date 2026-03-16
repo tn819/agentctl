@@ -1,6 +1,8 @@
 ---
 name: audit-credentials
 version: 0.0.1
+global: true
+allowed-tools: [Bash, Read]
 description: |
   Audits local credential setup for security compliance and produces a report.
 

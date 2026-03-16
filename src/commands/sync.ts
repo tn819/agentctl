@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome, AGENTS_DIR } from "../lib/config";
 import { isSkillClassified, setSkillGlobal, isGitRepo, fetchAndCheckSkill, pullSkill } from "../lib/skills";
+import { collectGateIssues } from "../lib/sync-gate";
 import { promptBoolean } from "../lib/prompt";
 import { loadPolicy } from "../lib/policy";
 import { AuditStore } from "../lib/audit";
@@ -303,13 +304,17 @@ export function registerSync(program: Command): void {
     .option("--with-proxy", "Route provider configs through vakt proxy for runtime policy + audit (opt-in)")
     .option("--all", "Sync all resources including local-only (default: global only)")
     .option("--no-update-skills", "Skip checking for upstream skill updates")
-    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean; updateSkills?: boolean }) => {
+    .option("--ci", "Non-interactive: gate errors block sync (exit 1), warnings pass")
+    .option("--force", "Skip pre-sync safety gate entirely")
+    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean; updateSkills?: boolean; ci?: boolean; force?: boolean }) => {
       const dryRun = opts.dryRun ?? false;
       const mcpOnly = opts.mcpOnly ?? false;
       const skillsOnly = opts.skillsOnly ?? false;
       const withProxy = opts.withProxy ?? false;
       const all = opts.all ?? false;
       const noUpdateSkills = opts.updateSkills === false;
+      const ci = opts.ci ?? false;
+      const force = opts.force ?? false;
 
       const agentsDir = AGENTS_DIR;
       if (!existsSync(agentsDir)) {
@@ -321,14 +326,64 @@ export function registerSync(program: Command): void {
       console.log(dim(`Source: ${agentsDir}`));
       if (dryRun) console.log(yellow("DRY RUN — no changes will be made"));
 
+      const mcpConfig = loadMcpConfig();
+      const policy = loadPolicy();
+      checkRegistryPolicy(policy, mcpConfig);
+
+      // ── Pre-sync safety gate ──────────────────────────────────────────────
+      if (!force && !dryRun) {
+        const gateSkillsDir = mcpOnly ? "" : join(agentsDir, "skills");
+        const gateMcpConfig = skillsOnly ? {} : mcpConfig;
+        const gate = collectGateIssues(gateSkillsDir, gateMcpConfig as import("../lib/schemas").McpConfig, policy);
+
+        if (gate.issues.length > 0) {
+          console.log(`\n${bold("── Pre-sync Safety Check ────────────────────────────────────")}`);
+
+          const skillIssues = gate.issues.filter(i => i.source === "skill");
+          const mcpIssues   = gate.issues.filter(i => i.source === "mcp");
+
+          if (skillIssues.length > 0) {
+            console.log(`\n  ${bold("Skills")}`);
+            for (const issue of skillIssues) {
+              const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
+              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
+            }
+          }
+
+          if (mcpIssues.length > 0) {
+            console.log(`\n  ${bold("MCP Servers")}`);
+            for (const issue of mcpIssues) {
+              const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
+              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
+            }
+          }
+
+          const errCount  = gate.issues.filter(i => i.severity === "error").length;
+          const warnCount = gate.issues.filter(i => i.severity === "warn").length;
+          const summary   = [
+            errCount  > 0 ? `${errCount} error${errCount  > 1 ? "s" : ""}` : "",
+            warnCount > 0 ? `${warnCount} warning${warnCount > 1 ? "s" : ""}` : "",
+          ].filter(Boolean).join(", ");
+          console.log(`\n  ${summary} found.`);
+
+          if (gate.hasErrors) {
+            if (ci) {
+              err("Sync blocked — fix errors or use --force to bypass.");
+              process.exit(1);
+            }
+            const proceed = await promptBoolean("  Proceed with sync anyway?");
+            if (!proceed) { console.log("  Aborted."); process.exit(1); }
+          } else if (gate.hasWarnings && !ci) {
+            const proceed = await promptBoolean("  Proceed with sync?");
+            if (!proceed) { console.log("  Aborted."); process.exit(1); }
+          }
+        }
+      }
+
       // Prompt for unclassified resources (only when not --all and not --dry-run)
       if (!all && !dryRun) {
         await promptUnclassifiedResources(agentsDir);
       }
-
-      const mcpConfig = loadMcpConfig();
-      const policy = loadPolicy();
-      checkRegistryPolicy(policy, mcpConfig);
 
       const userConfig = loadAgentConfig();
       const allProviders = loadProviders();

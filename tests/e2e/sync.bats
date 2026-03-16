@@ -216,7 +216,7 @@ PYEOF
 
   vakt add-server test-server npx -y test-mcp --global
 
-  run vakt sync
+  run vakt sync --force
 
   [ "$status" -eq 0 ]
   # The config file at the registry path must now exist
@@ -239,7 +239,7 @@ PYEOF
 
   vakt add-server test-server npx -y test-mcp
 
-  run vakt sync
+  run vakt sync --force
   [ "$status" -eq 0 ]
 
   [ -f "$cursor_config" ]
@@ -265,7 +265,7 @@ sys.exit(0 if data.endswith(b'\n') else 1)
 
   vakt add-server test-server npx -y test-mcp --global
 
-  run vakt sync
+  run vakt sync --force
   [ "$status" -eq 0 ]
 
   python3 -c "
@@ -301,7 +301,7 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
     f.write('\n')
 "
 
-  run vakt sync
+  run vakt sync --force
   [ "$status" -eq 0 ]
 
   # The ref string should be in the output, not an empty string
@@ -340,7 +340,7 @@ with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
 cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
 with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
 "
-  run bash -c "echo 'y' | '$VAKT' sync --mcp-only"
+  run bash -c "echo 'y' | '$VAKT' sync --mcp-only --force"
   [ "$status" -eq 0 ]
 
   # The server should now be classified as global: true
@@ -367,7 +367,7 @@ SKILLEOF
   mkdir -p "$AGENTS_DIR/skills"
   ln -s "$skill_dir/unclassified-skill" "$AGENTS_DIR/skills/unclassified-skill"
 
-  run bash -c "echo 'n' | '$VAKT' sync --skills-only"
+  run bash -c "echo 'n' | '$VAKT' sync --skills-only --force"
   [ "$status" -eq 0 ]
 
   grep -q "global: false" "$AGENTS_DIR/skills/unclassified-skill/SKILL.md"
@@ -399,7 +399,7 @@ with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
 cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
 with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
 "
-  run vakt sync --all
+  run vakt sync --all --force
   [ "$status" -eq 0 ]
 }
 
@@ -446,7 +446,7 @@ SKILLEOF
   rm -rf "$upstream_clone"
 
   # sync with update accepted
-  run bash -c "unset GIT_DIR GIT_WORK_TREE; echo 'y' | '$VAKT' sync --skills-only"
+  run bash -c "unset GIT_DIR GIT_WORK_TREE; echo 'y' | '$VAKT' sync --skills-only --force"
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-git-skill"* ]]
 
@@ -484,7 +484,7 @@ SKILLEOF
   git -C "$upstream_clone" push origin main
   rm -rf "$upstream_clone"
 
-  run vakt sync --skills-only --no-update-skills
+  run vakt sync --skills-only --no-update-skills --force
   [ "$status" -eq 0 ]
   # Output should NOT mention "new commits upstream" in update context
   [[ "$output" != *"new commits upstream"* ]]

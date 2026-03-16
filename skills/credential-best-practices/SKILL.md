@@ -1,6 +1,8 @@
 ---
 name: credential-best-practices
 version: 0.0.1
+global: true
+allowed-tools: [Bash, Read, Write]
 description: |
   Interactive wizard for setting up secure local credential management.
 
