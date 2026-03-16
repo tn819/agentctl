@@ -41,13 +41,16 @@ vakt/
 │   ├── providers.json            # Provider registry (data-driven, validated by ProvidersSchema)
 │   ├── agentctl.sh               # Thin shim: exec bun run src/index.ts "$@"
 │   ├── commands/                 # One file per top-level command
+│   │   ├── add-server.test.ts
 │   │   ├── add-server.ts
+│   │   ├── add-skill.test.ts
 │   │   ├── add-skill.ts
 │   │   ├── audit.ts
 │   │   ├── config.ts
 │   │   ├── daemon.ts
 │   │   ├── import.ts
 │   │   ├── init.ts
+│   │   ├── list.test.ts
 │   │   ├── list.ts
 │   │   ├── lockdown.ts
 │   │   ├── proxy.ts
@@ -56,6 +59,7 @@ vakt/
 │   │   ├── runtime.ts
 │   │   ├── search.ts
 │   │   ├── secrets.ts
+│   │   ├── sync.test.ts
 │   │   ├── sync.ts
 │   │   ├── upgrade.ts
 │   │   └── watch.ts
@@ -81,9 +85,12 @@ vakt/
 │       ├── resolver.test.ts
 │       ├── resolver.ts
 │       ├── runtime.ts
+│       ├── schemas.test.ts
 │       ├── schemas.ts
 │       ├── secrets.test.ts
 │       ├── secrets.ts
+│       ├── skills.test.ts
+│       ├── skills.ts
 │       └── verify.ts
 ├── tests/
 │   ├── unit/                     # Bun unit tests (*.test.ts)
