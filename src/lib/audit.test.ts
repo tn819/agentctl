@@ -56,3 +56,45 @@ describe("AuditStore", () => {
     expect(store.query({ serverName: "filesystem" })).toHaveLength(1);
   });
 });
+
+describe("AuditStore — sandbox sessions", () => {
+  const SESSION_DB = join(process.env["AGENTS_DIR"]!, "agent-session-test.db");
+  let store: AuditStore;
+
+  beforeEach(() => {
+    try { rmSync(SESSION_DB); } catch { /* ok */ }
+    store = new AuditStore(SESSION_DB);
+    store.init();
+  });
+
+  it("creates a session and retrieves it by id", () => {
+    const id = store.createSession({
+      provider: "docker",
+      containerId: "abc123",
+      image: "node:20-slim",
+      repo: "/tmp/myrepo",
+    });
+    expect(typeof id).toBe("string");
+    expect(id).toHaveLength(36); // UUID
+
+    const session = store.getSession(id);
+    expect(session).not.toBeNull();
+    expect(session!.provider).toBe("docker");
+    expect(session!.container_id).toBe("abc123");
+    expect(session!.status).toBe("running");
+  });
+
+  it("closes a session", () => {
+    const id = store.createSession({ provider: "docker", containerId: "def456" });
+    store.closeSession(id);
+    const session = store.getSession(id);
+    expect(session!.status).toBe("closed");
+  });
+
+  it("lists running sessions", () => {
+    store.createSession({ provider: "docker", containerId: "c1" });
+    store.createSession({ provider: "docker", containerId: "c2" });
+    const running = store.listSessions({ status: "running" });
+    expect(running).toHaveLength(2);
+  });
+});
