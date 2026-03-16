@@ -2,7 +2,7 @@
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$TEST_DIR/.." && pwd)"
-AGENTCTL="${PROJECT_ROOT}/src/vakt.sh"
+VAKT="${PROJECT_ROOT}/src/vakt.sh"
 
 setup_test_env() {
   # Full HOME sandbox — no real ~/.claude, ~/.cursor, etc. can leak in
@@ -18,8 +18,8 @@ teardown_test_env() {
   fi
 }
 
-agentctl() {
-  "$AGENTCTL" "$@"
+vakt() {
+  "$VAKT" "$@"
 }
 
 assert_file_exists() {
