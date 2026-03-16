@@ -30,17 +30,29 @@ export const StdioServerSchema = z.object({
   args: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
   cwd: z.string().optional(),
+  global: z.boolean().default(false),
 });
 
 export const HttpServerSchema = z.object({
   transport: z.literal("http"),
   url: z.string().url(),
   headers: z.record(z.string()).optional(),
+  global: z.boolean().default(false),
 });
 
 export const McpServerSchema = z.union([StdioServerSchema, HttpServerSchema]);
 
-export const McpConfigSchema = z.record(McpServerSchema);
+export const McpConfigSchema = z.preprocess(
+  (input) => {
+    if (input !== null && typeof input === "object" && !Array.isArray(input)) {
+      return Object.fromEntries(
+        Object.entries(input as Record<string, unknown>).filter(([k]) => !k.startsWith("_"))
+      );
+    }
+    return input;
+  },
+  z.record(McpServerSchema)
+);
 
 // ── Raw provider config files ─────────────────────────────────────────────────
 // Schema for a single server entry as it appears in a provider's config file
