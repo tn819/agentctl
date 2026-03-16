@@ -219,6 +219,30 @@ async function syncSkillsToProviders(
   }
 }
 
+async function handleSkillUpdate(entry: string, realPath: string, dryRun: boolean): Promise<void> {
+  const updateInfo = fetchAndCheckSkill(realPath);
+  if (!updateInfo) return;
+
+  const { behind, filesSummary } = updateInfo;
+  const commits = behind === 1 ? "1 new commit" : `${behind} new commits`;
+
+  if (dryRun) {
+    info(`[dry-run] Skill '${entry}' is ${commits} behind upstream (${filesSummary})`);
+    return;
+  }
+
+  const doUpdate = await promptBoolean(
+    `  Skill '${entry}' has ${commits} upstream (${filesSummary}). Update?`
+  );
+  if (doUpdate) {
+    const succeeded = pullSkill(realPath);
+    if (succeeded) ok(`updated skill: ${entry}`);
+    else err(`git pull failed for skill: ${entry}`);
+  } else {
+    info(`skipped: ${entry}`);
+  }
+}
+
 export async function refreshSkills(agentsDir: string, dryRun: boolean): Promise<void> {
   const skillsDir = join(agentsDir, "skills");
   if (!existsSync(skillsDir)) return;
@@ -226,7 +250,6 @@ export async function refreshSkills(agentsDir: string, dryRun: boolean): Promise
   let anyChecked = false;
   for (const entry of readdirSync(skillsDir)) {
     const skillPath = join(skillsDir, entry);
-    // resolve symlinks — the actual git repo may be the symlink target
     let realPath: string;
     try {
       realPath = realpathSync(skillPath); // NOSONAR — path comes from readdirSync of a known directory
@@ -236,33 +259,38 @@ export async function refreshSkills(agentsDir: string, dryRun: boolean): Promise
     if (!isGitRepo(realPath)) continue;
 
     anyChecked = true;
-    const updateInfo = fetchAndCheckSkill(realPath);
-    if (!updateInfo) {
-      // up to date
-      continue;
-    }
-
-    const { behind, filesSummary } = updateInfo;
-    const commits = behind === 1 ? "1 new commit" : `${behind} new commits`;
-
-    if (dryRun) {
-      info(`[dry-run] Skill '${entry}' is ${commits} behind upstream (${filesSummary})`);
-      continue;
-    }
-
-    const doUpdate = await promptBoolean(
-      `  Skill '${entry}' has ${commits} upstream (${filesSummary}). Update?`
-    );
-    if (doUpdate) {
-      const ok2 = pullSkill(realPath);
-      if (ok2) ok(`updated skill: ${entry}`);
-      else err(`git pull failed for skill: ${entry}`);
-    } else {
-      info(`skipped: ${entry}`);
-    }
+    await handleSkillUpdate(entry, realPath, dryRun);
   }
 
-  if (!anyChecked) return; // no git-backed skills, nothing to report
+  if (!anyChecked) return;
+}
+
+async function promptUnclassifiedResources(agentsDir: string): Promise<void> {
+  const unclassifiedServers = getUnclassifiedServers(agentsDir);
+  const unclassifiedSkills = getUnclassifiedSkills(agentsDir);
+
+  if (unclassifiedServers.length === 0 && unclassifiedSkills.length === 0) return;
+
+  console.log(`\n${yellow("⚠")}  Unclassified resources found — please classify each:`);
+
+  if (unclassifiedServers.length > 0) {
+    const configPath = join(agentsDir, "mcp-config.json");
+    const rawConfig = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, Record<string, unknown>>;
+    for (const name of unclassifiedServers) {
+      const isGlobal = await promptBoolean(`  Server '${name}': sync globally to all providers?`);
+      rawConfig[name]!["global"] = isGlobal;
+    }
+    writeFileSync(configPath, JSON.stringify(rawConfig, null, 2) + "\n");
+  }
+
+  if (unclassifiedSkills.length > 0) {
+    const skillsDirPath = join(agentsDir, "skills");
+    for (const skill of unclassifiedSkills) {
+      const skillPath = join(skillsDirPath, skill);
+      const isGlobal = await promptBoolean(`  Skill '${skill}': sync globally to all providers?`);
+      setSkillGlobal(skillPath, isGlobal);
+    }
+  }
 }
 
 export function registerSync(program: Command): void {
@@ -295,31 +323,7 @@ export function registerSync(program: Command): void {
 
       // Prompt for unclassified resources (only when not --all and not --dry-run)
       if (!all && !dryRun) {
-        const unclassifiedServers = getUnclassifiedServers(agentsDir);
-        const unclassifiedSkills = getUnclassifiedSkills(agentsDir);
-
-        if (unclassifiedServers.length > 0 || unclassifiedSkills.length > 0) {
-          console.log(`\n${yellow("⚠")}  Unclassified resources found — please classify each:`);
-
-          if (unclassifiedServers.length > 0) {
-            const configPath = join(agentsDir, "mcp-config.json");
-            const rawConfig = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, Record<string, unknown>>;
-            for (const name of unclassifiedServers) {
-              const isGlobal = await promptBoolean(`  Server '${name}': sync globally to all providers?`);
-              rawConfig[name]!["global"] = isGlobal;
-            }
-            writeFileSync(configPath, JSON.stringify(rawConfig, null, 2) + "\n");
-          }
-
-          if (unclassifiedSkills.length > 0) {
-            const skillsDirPath = join(agentsDir, "skills");
-            for (const skill of unclassifiedSkills) {
-              const skillPath = join(skillsDirPath, skill);
-              const isGlobal = await promptBoolean(`  Skill '${skill}': sync globally to all providers?`);
-              setSkillGlobal(skillPath, isGlobal);
-            }
-          }
-        }
+        await promptUnclassifiedResources(agentsDir);
       }
 
       const mcpConfig = loadMcpConfig();

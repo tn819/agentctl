@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { writeFileSync, readFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { isSkillGlobal, isSkillClassified, isGitRepo, assertSafePath, fetchAndCheckSkill, setSkillGlobal } from "./skills";
+import { isSkillGlobal, isSkillClassified, isGitRepo, assertSafePath, fetchAndCheckSkill, setSkillGlobal, pullSkill } from "./skills";
 
 const tmp = "/tmp/vakt-skills-test";
 
@@ -178,5 +178,17 @@ describe("setSkillGlobal", () => {
     const content = readFileSync(join(dir, "SKILL.md"), "utf-8");
     expect(content).toContain("global: true");
     rmSync(dir, { recursive: true });
+  });
+});
+
+describe("pullSkill", () => {
+  test("returns false for a non-git directory", () => {
+    const dir = mkdtempSync("/tmp/vakt-pull-test-");
+    expect(pullSkill(dir)).toBe(false);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("returns false when assertSafePath rejects", () => {
+    expect(() => pullSkill("relative/path")).toThrow("Unsafe path rejected");
   });
 });

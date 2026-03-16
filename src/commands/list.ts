@@ -12,8 +12,8 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
-export function globalTag(isGlobal: boolean): string { // NOSONAR
-  return isGlobal ? green("[global]") : yellow("[local]");
+export function globalTag(scope: "global" | "local"): string {
+  return scope === "global" ? green("[global]") : yellow("[local]");
 }
 
 function printServers(config: import("../lib/schemas").McpConfig): void {
@@ -26,7 +26,7 @@ function printServers(config: import("../lib/schemas").McpConfig): void {
       const desc = "transport" in server && server.transport === "http"
         ? cyan(server.url)
         : dim(`${(server as import("../lib/schemas").StdioServer).command} ${((server as import("../lib/schemas").StdioServer).args ?? []).join(" ")}`);
-      const tag = globalTag(server.global === true);
+      const tag = globalTag(server.global === true ? "global" : "local");
       console.log(`  ${bold(name)}  ${tag}  ${desc}`);
     }
   }
@@ -50,7 +50,7 @@ function printSkills(skillsDir: string): void {
           const m = content.match(/^description:\s*([^\r\n]+)/m);
           if (m) desc = dim(m[1]!);
         }
-        const tag = globalTag(isSkillGlobal(skillDir));
+        const tag = globalTag(isSkillGlobal(skillDir) ? "global" : "local");
         console.log(`  ${bold(skill)}  ${tag}  ${desc}`);
       }
     }

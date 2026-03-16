@@ -13,7 +13,7 @@ function parseFrontmatter(content: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (let i = 1; i < lines.length; i++) {
     if (lines[i] === "---") break;
-    const kv = lines[i]!.match(/^(\w[\w-]*):\s*(.+)/);
+    const kv = (/^(\w[\w-]*):\s*(.+)/).exec(lines[i]!);
     if (kv) result[kv[1]!] = kv[2]!.trim();
   }
   return result;
@@ -114,8 +114,8 @@ export function fetchAndCheckSkill(skillDir: string): SkillUpdateInfo | null {
     { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"], env: cleanGitEnv() }
   );
   if (behindResult.status !== 0) return null;
-  const behind = parseInt(behindResult.stdout.trim(), 10);
-  if (isNaN(behind) || behind === 0) return null;
+  const behind = Number.parseInt(behindResult.stdout.trim(), 10);
+  if (Number.isNaN(behind) || behind === 0) return null;
 
   // Get changed files summary
   const filesResult = spawnSync( // NOSONAR — hardcoded "git" command, path validated by assertSafePath
@@ -151,8 +151,8 @@ export function setSkillGlobal(skillDir: string, value: boolean): void {
     return;
   }
   let content = readFileSync(skillMd, "utf-8"); // NOSONAR — path constrained to join(skillDir, "SKILL.md")
-  if (content.match(/^---/)) {
-    if (content.match(/\nglobal:/)) {
+  if (content.startsWith("---")) {
+    if (content.includes("\nglobal:")) {
       // Replace existing global line
       content = content.replace(/\nglobal: (true|false)/, `\nglobal: ${value}`);
     } else {
