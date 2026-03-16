@@ -63,12 +63,33 @@ export class DockerSandboxProvider implements SandboxProvider {
     return res.json() as Promise<T>;
   }
 
+  private async pullImage(image: string): Promise<void> {
+    // POST /images/create?fromImage=<image> — streams JSON progress lines, we just drain it
+    const res = await fetch(
+      this.url(`/images/create?fromImage=${encodeURIComponent(image)}`),
+      {
+        method: "POST",
+        // @ts-ignore
+        unix: this.socket,
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Docker pull ${image} → ${res.status}: ${text}`);
+    }
+    // Drain the response stream (progress JSON lines) so the pull completes
+    await res.text();
+  }
+
   async create(opts: SandboxCreateOpts): Promise<SandboxHandle> {
+    const image = opts.image ?? this.defaultImage;
+    await this.pullImage(image);
+
     const labels: Record<string, string> = { "vakt.managed": "true", ...opts.labels };
     if (opts.name) labels["vakt.name"] = opts.name;
 
     const body: Record<string, unknown> = {
-      Image:     opts.image ?? this.defaultImage,
+      Image:     image,
       Cmd:       ["/bin/sh"],
       OpenStdin: true,
       Labels:    labels,

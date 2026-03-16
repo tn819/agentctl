@@ -37,7 +37,8 @@ describe("DockerSandboxProvider", () => {
     });
   });
 
-  it("create: calls /containers/create and /containers/{id}/start", async () => {
+  it("create: pulls image then calls /containers/create and /containers/{id}/start", async () => {
+    pushMock("");                          // POST /images/create (pull)
     pushMock({ Id: "container-abc" });   // POST /containers/create
     pushMock({});                         // POST /containers/container-abc/start
 
