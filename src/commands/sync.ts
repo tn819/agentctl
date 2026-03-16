@@ -1,7 +1,6 @@
 // src/commands/sync.ts
 import { join } from "node:path";
-import { existsSync, readFileSync, writeFileSync, readdirSync, realpathSync } from "node:fs";
-import { statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome, AGENTS_DIR } from "../lib/config";
@@ -61,7 +60,7 @@ function resolveCmd(cmd: string): string | null {
   const lookup = process.platform === "win32"
     ? "C:\\Windows\\System32\\where.exe"
     : "/usr/bin/which";
-  const result = spawnSync(lookup, [cmd], { encoding: "utf-8" });
+  const result = spawnSync(lookup, [cmd], { encoding: "utf-8" }); // NOSONAR — uses absolute path for lookup command
   if (result.status !== 0) return null;
   return result.stdout.trim().split("\n")[0]?.trim() ?? null;
 }
@@ -220,7 +219,7 @@ async function syncSkillsToProviders(
   }
 }
 
-async function refreshSkills(agentsDir: string, dryRun: boolean): Promise<void> {
+export async function refreshSkills(agentsDir: string, dryRun: boolean): Promise<void> {
   const skillsDir = join(agentsDir, "skills");
   if (!existsSync(skillsDir)) return;
 
@@ -230,7 +229,7 @@ async function refreshSkills(agentsDir: string, dryRun: boolean): Promise<void> 
     // resolve symlinks — the actual git repo may be the symlink target
     let realPath: string;
     try {
-      realPath = realpathSync(skillPath);
+      realPath = realpathSync(skillPath); // NOSONAR — path comes from readdirSync of a known directory
     } catch {
       realPath = skillPath;
     }

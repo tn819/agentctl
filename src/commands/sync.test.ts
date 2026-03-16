@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { filterGlobal, getUnclassifiedServers, getUnclassifiedSkills } from "./sync";
+import { filterGlobal, getUnclassifiedServers, getUnclassifiedSkills, refreshSkills } from "./sync";
 import type { McpConfig } from "../lib/schemas";
 
 describe("filterGlobal", () => {
@@ -111,6 +111,32 @@ describe("getUnclassifiedServers", () => {
   test("returns empty array on malformed JSON", () => {
     writeFileSync(join(tmp, "mcp-config.json"), "not json");
     expect(getUnclassifiedServers(tmp)).toEqual([]);
+  });
+});
+
+describe("refreshSkills", () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync("/tmp/vakt-refresh-test-"); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  test("returns early (no throw) when skills dir does not exist", async () => {
+    await expect(refreshSkills(tmp, false)).resolves.toBeUndefined();
+  });
+
+  test("returns early (no throw) in dry-run when skills dir does not exist", async () => {
+    await expect(refreshSkills(tmp, true)).resolves.toBeUndefined();
+  });
+
+  test("completes without error when skills dir exists but is empty", async () => {
+    mkdirSync(join(tmp, "skills"), { recursive: true });
+    await expect(refreshSkills(tmp, true)).resolves.toBeUndefined();
+  });
+
+  test("completes without error when skills dir has a non-git directory", async () => {
+    const skillDir = join(tmp, "skills", "my-skill");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "---\nname: my-skill\nglobal: true\n---\n");
+    await expect(refreshSkills(tmp, true)).resolves.toBeUndefined();
   });
 });
 

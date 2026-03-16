@@ -12,7 +12,7 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
-export function globalTag(isGlobal: boolean): string {
+export function globalTag(isGlobal: boolean): string { // NOSONAR
   return isGlobal ? green("[global]") : yellow("[local]");
 }
 

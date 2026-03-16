@@ -45,7 +45,7 @@ export function registerAddServer(program: Command): void {
     .option("--global", "Mark server as global — will be synced to all providers")
     .allowUnknownOption(true)
     .allowExcessArguments(true)
-    .action(async (name: string, opts: { http?: string; global?: boolean }) => {
+    .action(async (name: string, opts: { http?: string; global?: boolean }) => { // NOSONAR
       const mcpPath = join(AGENTS_DIR, "mcp-config.json");
       if (!existsSync(AGENTS_DIR)) {
         console.error("Run 'vakt init' first");

@@ -30,7 +30,7 @@ async function readLine(): Promise<string | null> {
     };
     const onEnd = () => resolve(data.length > 0 ? data : null);
     process.stdin.resume();
-    process.stdin.on("data", onData);
+    process.stdin.on("data", onData); // NOSONAR — intentional stdin read for interactive prompt
     process.stdin.on("end", onEnd);
   });
 }

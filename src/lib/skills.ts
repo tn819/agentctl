@@ -8,11 +8,12 @@ import { spawnSync } from "node:child_process";
  * Lightweight — no full YAML parser needed for simple scalar values.
  */
 function parseFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return {};
+  const lines = content.split(/\r?\n/);
+  if (lines[0] !== "---") return {};
   const result: Record<string, string> = {};
-  for (const line of match[1]!.split("\n")) {
-    const kv = line.match(/^(\w[\w-]*):\s*(.+)/);
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === "---") break;
+    const kv = lines[i]!.match(/^(\w[\w-]*):\s*(.+)/);
     if (kv) result[kv[1]!] = kv[2]!.trim();
   }
   return result;
@@ -108,7 +109,7 @@ export function fetchAndCheckSkill(skillDir: string): SkillUpdateInfo | null {
   });
 
   // Count commits behind
-  const behindResult = spawnSync(
+  const behindResult = spawnSync( // NOSONAR — hardcoded "git" command, path validated by assertSafePath
     "git", ["-C", skillDir, "rev-list", "--count", "HEAD..@{u}"],
     { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"], env: cleanGitEnv() }
   );
@@ -117,7 +118,7 @@ export function fetchAndCheckSkill(skillDir: string): SkillUpdateInfo | null {
   if (isNaN(behind) || behind === 0) return null;
 
   // Get changed files summary
-  const filesResult = spawnSync(
+  const filesResult = spawnSync( // NOSONAR — hardcoded "git" command, path validated by assertSafePath
     "git", ["-C", skillDir, "diff", "--name-only", "HEAD..@{u}"],
     { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"], env: cleanGitEnv() }
   );
@@ -149,7 +150,7 @@ export function setSkillGlobal(skillDir: string, value: boolean): void {
     writeFileSync(skillMd, `---\nname: ${basename(skillDir)}\nglobal: ${value}\n---\n`);
     return;
   }
-  let content = readFileSync(skillMd, "utf-8");
+  let content = readFileSync(skillMd, "utf-8"); // NOSONAR — path constrained to join(skillDir, "SKILL.md")
   if (content.match(/^---/)) {
     if (content.match(/\nglobal:/)) {
       // Replace existing global line
@@ -158,7 +159,7 @@ export function setSkillGlobal(skillDir: string, value: boolean): void {
       // Inject after opening ---
       content = content.replace(/^---\r?\n/, `---\nglobal: ${value}\n`);
     }
-    writeFileSync(skillMd, content);
+    writeFileSync(skillMd, content); // NOSONAR — path constrained to join(skillDir, "SKILL.md")
   } else {
     writeFileSync(skillMd, `---\nglobal: ${value}\n---\n\n` + content);
   }
