@@ -11,8 +11,8 @@
 
 [![CI](https://github.com/tn819/vakt/actions/workflows/ci.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/ci.yml)
 [![Tests](https://github.com/tn819/vakt/actions/workflows/test.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/test.yml)
-[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=tn819_agentctl&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=tn819_agentctl)
-[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tn819_agentctl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tn819_agentctl)
+[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=tn819_vakt&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=tn819_vakt)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tn819_vakt&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tn819_vakt)
 [![Release](https://img.shields.io/github/v/release/tn819/vakt?label=release&color=22c55e)](https://github.com/tn819/vakt/releases)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/runtime-Bun-fbf0df?logo=bun&logoColor=black)](https://bun.sh/)
@@ -112,6 +112,85 @@ The community maintains a broader catalogue of sandbox technologies at [awesome-
 | [Kata Containers](https://katacontainers.io) | MicroVMs on Kubernetes | — | ✓ | VM-level isolation, container UX |
 | [Fly.io](https://fly.io) | Firecracker | ✓ | — | Persistent storage + global networking |
 | [gVisor](https://gvisor.dev) | Syscall interception | via Cloud Run | ✓ | Google's approach; used in GKE Sandbox |
+
+#### Coding agent sandbox setup
+
+Each provider has a playbook covering prerequisites, implementation guide, and e2e tests. The one-liner setups below store credentials in your keychain and make the config shareable with any collaborator or CI runner.
+
+**Docker** (local — no credentials needed, start here) · [playbook](docs/playbooks/sandbox-docker.md) · [e2e tests](tests/e2e/agent-docker.bats)
+```bash
+vakt config set runtime.docker.image node:20-slim
+vakt runtime set my-coder docker
+```
+
+**E2B** (Firecracker microVMs) · [playbook](docs/playbooks/sandbox-e2b.md) · [e2e tests](tests/e2e/agent-e2b.bats)
+```bash
+vakt secrets set E2B_API_KEY e2b_...            # stored in keychain
+vakt config set runtime.e2b.api_key secret:E2B_API_KEY
+vakt runtime set my-coder e2b
+```
+
+**Daytona** (containers, <200ms) · [playbook](docs/playbooks/sandbox-daytona.md) · [e2e tests](tests/e2e/agent-daytona.bats)
+```bash
+vakt secrets set DAYTONA_API_KEY dt_...
+vakt config set runtime.daytona.api_url https://app.daytona.io/api
+vakt config set runtime.daytona.api_key secret:DAYTONA_API_KEY
+vakt runtime set my-coder daytona
+```
+
+**microsandbox** (self-hosted libkrun) · [playbook](docs/playbooks/sandbox-microsandbox.md) · [e2e tests](tests/e2e/agent-microsandbox.bats)
+```bash
+msb daemon start                                # no API key needed
+vakt config set runtime.microsandbox.api_url http://localhost:7681
+vakt runtime set my-coder microsandbox
+```
+
+**Kata Containers** (MicroVMs on Kubernetes) · [playbook](docs/playbooks/sandbox-kata-containers.md) · [e2e tests](tests/e2e/agent-kata.bats)
+```bash
+vakt config set runtime.kata.kubeconfig ~/.kube/config
+vakt config set runtime.kata.namespace vakt-agents
+vakt config set runtime.kata.runtime_class kata-qemu
+vakt runtime set my-coder kata
+```
+
+**Fly.io** (Firecracker + global edge) · [playbook](docs/playbooks/sandbox-fly-io.md) · [e2e tests](tests/e2e/agent-fly.bats)
+```bash
+vakt secrets set FLY_API_TOKEN $(fly auth token)
+vakt config set runtime.fly.api_token secret:FLY_API_TOKEN
+vakt config set runtime.fly.app vakt-agent-sandbox
+vakt runtime set my-coder fly
+```
+
+**gVisor** (syscall interception) · [playbook](docs/playbooks/sandbox-gvisor.md) · [e2e tests](tests/e2e/agent-gvisor.bats)
+```bash
+# Cloud Run variant
+vakt secrets set GCP_SA_KEY "$(cat service-account.json | base64)"
+vakt config set runtime.gvisor.backend cloud-run
+vakt config set runtime.gvisor.project my-gcp-project
+vakt runtime set my-coder gvisor
+
+# Local runsc variant (Linux)
+vakt config set runtime.gvisor.backend docker
+vakt config set runtime.gvisor.runtime_class runsc
+vakt runtime set my-coder gvisor
+```
+
+**Coder.com** (persistent workspaces — repo + toolchain pre-installed by Terraform template) · [playbook](docs/playbooks/sandbox-coder.md) · [e2e tests](tests/e2e/agent-coder.bats)
+```bash
+vakt secrets set CODER_TOKEN "$(coder tokens create vakt --lifetime 8760h)"
+vakt secrets set CODER_URL   https://coder.example.com
+vakt config set runtime.coder.url      secret:CODER_URL
+vakt config set runtime.coder.token    secret:CODER_TOKEN
+vakt config set runtime.coder.org      default
+vakt config set runtime.coder.template my-agent-template
+vakt runtime set my-coder coder
+```
+
+Config is always shareable — secrets stay in your keychain, never in `~/.agents/`:
+```bash
+# Teammate onboarding: they run their own vakt secrets set, then:
+vakt sync   # → all providers configured with their own credentials
+```
 
 ### 3 — Enforce tool policy at runtime
 

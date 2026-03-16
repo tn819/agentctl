@@ -7,11 +7,11 @@ export function resolveRemoteUrl(base: string, filename: string): string {
   base = base.replace(/\/$/, "");
 
   // GitHub repo URL → raw.githubusercontent.com
-  const ghMatch = base.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+  const ghMatch = /^https?:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/.exec(base);
   if (ghMatch) return `https://raw.githubusercontent.com/${ghMatch[1]}/main/${filename}`;
 
   // GitLab repo URL
-  const glMatch = base.match(/^https?:\/\/gitlab\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+  const glMatch = /^https?:\/\/gitlab\.com\/([^/]+\/[^/]+?)(?:\.git)?$/.exec(base);
   if (glMatch) return `https://gitlab.com/${glMatch[1]}/-/raw/main/${filename}`;
 
   // Local filesystem path

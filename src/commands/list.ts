@@ -32,27 +32,29 @@ function printServers(config: import("../lib/schemas").McpConfig): void {
   }
 }
 
+function renderSkillRow(skillsDir: string, skill: string): void {
+  const skillDir = join(skillsDir, skill);
+  const meta = readSkillMeta(skillDir);
+  const desc = meta.description ? dim(meta.description.split("\n")[0]!) : "";
+  const tag = globalTag(isSkillGlobal(skillDir) ? "global" : "local");
+  const tools = meta.allowedTools
+    ? dim(`[tools: ${meta.allowedTools.join(", ")}]`)
+    : yellow("[unscoped]");
+  console.log(`  ${bold(skill)}  ${tag}  ${tools}  ${desc}`);
+}
+
 function printSkills(skillsDir: string): void {
   console.log(`\n${bold("── Skills ───────────────────────────────────────────")}`);
   if (!existsSync(skillsDir)) {
     console.log(`  ${dim("No skills directory.")}`);
-  } else {
-    const skills = readdirSync(skillsDir);
-    if (skills.length === 0) {
-      console.log(`  ${dim("No skills installed.")}`);
-    } else {
-      for (const skill of skills) {
-        const skillDir = join(skillsDir, skill);
-        const meta = readSkillMeta(skillDir);
-        const desc = meta.description ? dim(meta.description.split("\n")[0]!) : "";
-        const tag = globalTag(isSkillGlobal(skillDir) ? "global" : "local");
-        const tools = meta.allowedTools
-          ? dim(`[tools: ${meta.allowedTools.join(", ")}]`)
-          : yellow("[unscoped]");
-        console.log(`  ${bold(skill)}  ${tag}  ${tools}  ${desc}`);
-      }
-    }
+    return;
   }
+  const skills = readdirSync(skillsDir);
+  if (skills.length === 0) {
+    console.log(`  ${dim("No skills installed.")}`);
+    return;
+  }
+  for (const skill of skills) renderSkillRow(skillsDir, skill);
 }
 
 async function printSecrets(): Promise<void> {

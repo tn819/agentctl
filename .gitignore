@@ -93,3 +93,15 @@ coverage/
 
 # Release artifacts
 releases/
+
+# Git worktrees
+.worktrees/
+
+# Git worktrees
+.worktrees/
+
+# Git worktrees
+.worktrees/
+
+# Git worktrees
+.worktrees/
