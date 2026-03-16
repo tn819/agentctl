@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, realpathSync, sta
 import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome, AGENTS_DIR } from "../lib/config";
-import { isSkillClassified, setSkillGlobal, isGitRepo, fetchAndCheckSkill, pullSkill } from "../lib/skills";
+import { isSkillClassified, readSkillMeta, setSkillGlobal, isGitRepo, fetchAndCheckSkill, pullSkill } from "../lib/skills";
 import { promptBoolean } from "../lib/prompt";
 import { loadPolicy } from "../lib/policy";
 import { AuditStore } from "../lib/audit";
@@ -195,9 +195,26 @@ async function syncSkillsToProviders(
   agentsDir: string,
   dryRun: boolean,
   globalOnly = true,
+  strictSkills = false,
+  policy: import("../lib/schemas").Policy | null = null,
 ): Promise<void> {
   console.log(`\n${bold("── Skills ──────────────────────────────────────────────────")}`);
   const skillsSource = join(agentsDir, "skills");
+
+  // Scope check: warn (or exit) on unscoped skills when policy requires it
+  if (policy?.skills?.scopeRequired && existsSync(skillsSource)) {
+    const { readdirSync, statSync } = await import("node:fs");
+    for (const entry of readdirSync(skillsSource)) {
+      const skillPath = join(skillsSource, entry);
+      if (!statSync(skillPath).isDirectory()) continue;
+      const meta = readSkillMeta(skillPath);
+      if (!meta.allowedTools) {
+        const msg = `skill '${entry}' has no allowed-tools declaration (policy: scopeRequired)`;
+        if (strictSkills) { err(msg); process.exit(1); }
+        else warn(msg);
+      }
+    }
+  }
 
   for (const provider of providers) {
     if (!isInstalled(provider.detectCommand)) continue;
@@ -303,13 +320,15 @@ export function registerSync(program: Command): void {
     .option("--with-proxy", "Route provider configs through vakt proxy for runtime policy + audit (opt-in)")
     .option("--all", "Sync all resources including local-only (default: global only)")
     .option("--no-update-skills", "Skip checking for upstream skill updates")
-    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean; updateSkills?: boolean }) => {
+    .option("--strict-skills", "Exit 1 if any skill has no allowed-tools declaration (requires policy.skills.scopeRequired)")
+    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean; updateSkills?: boolean; strictSkills?: boolean }) => {
       const dryRun = opts.dryRun ?? false;
       const mcpOnly = opts.mcpOnly ?? false;
       const skillsOnly = opts.skillsOnly ?? false;
       const withProxy = opts.withProxy ?? false;
       const all = opts.all ?? false;
       const noUpdateSkills = opts.updateSkills === false;
+      const strictSkills = opts.strictSkills ?? false;
 
       const agentsDir = AGENTS_DIR;
       if (!existsSync(agentsDir)) {
@@ -348,7 +367,7 @@ export function registerSync(program: Command): void {
           console.log(`\n${bold("── Skill Updates ───────────────────────────────────────────")}`);
           await refreshSkills(agentsDir, dryRun);
         }
-        await syncSkillsToProviders(enabledProviders, agentsDir, dryRun, !all);
+        await syncSkillsToProviders(enabledProviders, agentsDir, dryRun, !all, strictSkills, policy);
       }
 
       // Record sync event in audit log

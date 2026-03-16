@@ -1,10 +1,10 @@
 // src/commands/list.ts
 import { join } from "node:path";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import type { Command } from "commander";
 import { AGENTS_DIR, loadMcpConfig } from "../lib/config";
 import { secretsList, getBackend } from "../lib/secrets";
-import { isSkillGlobal } from "../lib/skills";
+import { isSkillGlobal, readSkillMeta } from "../lib/skills";
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
@@ -43,15 +43,13 @@ function printSkills(skillsDir: string): void {
     } else {
       for (const skill of skills) {
         const skillDir = join(skillsDir, skill);
-        const skillMd = join(skillDir, "SKILL.md");
-        let desc = "";
-        if (existsSync(skillMd)) {
-          const content = readFileSync(skillMd, "utf-8");
-          const m = content.match(/^description:\s*([^\r\n]+)/m);
-          if (m) desc = dim(m[1]!);
-        }
-        const tag = globalTag(isSkillGlobal(skillDir) ? "global" : "local");
-        console.log(`  ${bold(skill)}  ${tag}  ${desc}`);
+        const meta = readSkillMeta(skillDir);
+        const desc = meta.description ? dim(meta.description.split("\n")[0]!) : "";
+        const tag = globalTag(isSkillGlobal(skillDir));
+        const tools = meta.allowedTools
+          ? dim(`[tools: ${meta.allowedTools.join(", ")}]`)
+          : yellow("[unscoped]");
+        console.log(`  ${bold(skill)}  ${tag}  ${tools}  ${desc}`);
       }
     }
   }

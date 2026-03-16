@@ -1,6 +1,8 @@
 ---
 name: export-credentials
 version: 0.0.1
+global: true
+allowed-tools: [Bash, Read, Write]
 description: |
   Securely export credentials from local credential stores without exposing them to the AI.
 

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -17,6 +17,130 @@ function parseFrontmatter(content: string): Record<string, string> {
     if (kv) result[kv[1]!] = kv[2]!.trim();
   }
   return result;
+}
+
+// ── Skill metadata (includes array fields) ──────────────────────────────────
+
+export interface SkillMeta {
+  name?: string;
+  description?: string;
+  version?: string;
+  /** Claude Code `allowed-tools` frontmatter — other platforms ignore it. */
+  allowedTools?: string[];
+}
+
+export interface SkillHazard {
+  file: string;
+  pattern: string;
+  line: number;
+}
+
+/** Inline array: `[Bash, Read, Write]` */
+function parseInlineArray(value: string): string[] | null {
+  const m = value.match(/^\[(.+)\]$/);
+  if (!m) return null;
+  return m[1]!.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+/**
+ * Parse all structured frontmatter from a SKILL.md content string,
+ * including the `allowed-tools` array field (inline or block style).
+ */
+export function parseSkillFrontmatter(content: string): SkillMeta {
+  const meta: SkillMeta = {};
+  const blockMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!blockMatch) return meta;
+
+  const lines = blockMatch[1]!.split("\n");
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+
+    // Block-array key: "allowed-tools:" with list items on following lines
+    const blockKey = line.match(/^([\w-]+):\s*$/);
+    if (blockKey) {
+      const key = blockKey[1]!;
+      const items: string[] = [];
+      i++;
+      while (i < lines.length && /^\s+-\s+/.test(lines[i]!)) {
+        items.push(lines[i]!.replace(/^\s+-\s+/, "").trim());
+        i++;
+      }
+      if (key === "allowed-tools" && items.length) meta.allowedTools = items;
+      continue;
+    }
+
+    // Scalar or inline-array
+    const kv = line.match(/^([\w-]+):\s*(.+)/);
+    if (kv) {
+      const [, key, val] = kv as [string, string, string];
+      const trimmed = val.trim();
+      switch (key) {
+        case "allowed-tools": {
+          const arr = parseInlineArray(trimmed);
+          if (arr) meta.allowedTools = arr;
+          break;
+        }
+        case "name":        meta.name        = trimmed; break;
+        case "description": meta.description = trimmed; break;
+        case "version":     meta.version     = trimmed; break;
+      }
+    }
+    i++;
+  }
+  return meta;
+}
+
+/** Read and parse SKILL.md from a skill directory. Returns `{}` if missing. */
+export function readSkillMeta(skillDir: string): SkillMeta {
+  const skillMd = join(skillDir, "SKILL.md");
+  if (!existsSync(skillMd)) return {};
+  return parseSkillFrontmatter(readFileSync(skillMd, "utf-8"));
+}
+
+/**
+ * Scan a skill directory for static hazard patterns in SKILL.md and
+ * bundled scripts. Returns an array of findings; empty means no issues.
+ *
+ * Note: this is best-effort heuristic analysis — it cannot catch all
+ * dangerous instructions, and some findings may be false positives.
+ */
+export function scanSkillHazards(skillDir: string): SkillHazard[] {
+  const hazards: SkillHazard[] = [];
+
+  const PATTERNS: Array<{ re: RegExp; label: string }> = [
+    { re: /curl\s+.+\|\s*(ba)?sh/i,              label: "curl-pipe-sh" },
+    { re: /wget\s+.+\|\s*(ba)?sh/i,              label: "wget-pipe-sh" },
+    { re: /base64\s+-d\s*\|\s*(ba)?sh/i,         label: "base64-pipe-sh" },
+    { re: /rm\s+-[a-z]*r[a-z]*f?\s+\//i,         label: "rm-rf-root" },
+    { re: /\beval\s*["'`$\(]/,                    label: "eval-exec" },
+    { re: /\$\(.*curl|`.*curl/i,                  label: "subshell-curl" },
+  ];
+
+  function scanFile(filePath: string): void {
+    if (!existsSync(filePath)) return;
+    const lines = readFileSync(filePath, "utf-8").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      for (const { re, label } of PATTERNS) {
+        if (re.test(lines[i]!)) {
+          hazards.push({ file: basename(filePath), pattern: label, line: i + 1 });
+        }
+      }
+    }
+  }
+
+  // Scan SKILL.md content (catches instructions directing the agent)
+  scanFile(join(skillDir, "SKILL.md"));
+
+  // Scan all bundled scripts
+  const scriptsDir = join(skillDir, "scripts");
+  if (existsSync(scriptsDir)) {
+    for (const f of readdirSync(scriptsDir)) {
+      scanFile(join(scriptsDir, f));
+    }
+  }
+
+  return hazards;
 }
 
 /**

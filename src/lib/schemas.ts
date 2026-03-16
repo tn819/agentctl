@@ -227,6 +227,13 @@ export const PolicySchema = z.object({
   registryPolicy: z.enum(["allow-unverified", "warn-unverified", "registry-only"])
     .default("allow-unverified"),
   servers: z.record(z.string(), PolicyServerRulesSchema).optional(),
+  skills: z.object({
+    /**
+     * When true, `vakt sync` warns (or exits 1 with --strict-skills) for any
+     * installed skill that has no `allowed-tools` declaration in its SKILL.md.
+     */
+    scopeRequired: z.boolean().default(false),
+  }).optional(),
   _meta: z.object({
     lockedKeys: z.array(z.string()).optional(),
   }).optional(),
