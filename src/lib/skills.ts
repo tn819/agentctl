@@ -48,10 +48,14 @@ function parseInlineArray(value: string): string[] | null {
  */
 export function parseSkillFrontmatter(content: string): SkillMeta {
   const meta: SkillMeta = {};
-  const blockMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!blockMatch) return meta;
+  // Extract frontmatter block without a multi-line regex (avoids ReDoS with [\s\S]*?)
+  if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) return meta;
+  const bodyStart = content.indexOf("\n") + 1;
+  const endMarker = content.indexOf("\n---", bodyStart);
+  if (endMarker === -1) return meta;
+  const block = content.slice(bodyStart, endMarker);
 
-  const lines = blockMatch[1]!.split("\n");
+  const lines = block.split("\n");
   let i = 0;
   while (i < lines.length) {
     const line = lines[i]!;
@@ -71,7 +75,7 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
     }
 
     // Scalar or inline-array
-    const kv = line.match(/^([\w-]+):\s*(.+)/);
+    const kv = line.match(/^([\w-]+):\s*([^\r\n]+)/);
     if (kv) {
       const [, key, val] = kv as [string, string, string];
       const trimmed = val.trim();

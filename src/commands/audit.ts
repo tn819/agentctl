@@ -113,7 +113,7 @@ export function registerAudit(program: Command): void {
 
         if (r.hazards.length > 0) {
           for (const h of r.hazards) {
-            console.log(`    ${dim(`${h.file}:${h.line}`)}  ${yellow(h.pattern)}`);
+            console.log(`    ${dim(`${h.file}:${h.line}`)}  ${yellow(h.pattern)}`); // NOSONAR — intentional CLI output of local scan results
           }
         }
       }
@@ -121,8 +121,8 @@ export function registerAudit(program: Command): void {
       const unscoped = rows.filter(r => !r.scoped).length;
       const withHazards = rows.filter(r => r.hazards.length > 0).length;
       console.log();
-      if (unscoped > 0) console.log(`  ${yellow(`⚠ ${unscoped} unscoped skill${unscoped > 1 ? "s" : ""} — add allowed-tools to SKILL.md frontmatter`)}`);
-      if (withHazards > 0) console.log(`  ${red(`✗ ${withHazards} skill${withHazards > 1 ? "s" : ""} with static hazard findings — review before syncing`)}`);
+      if (unscoped > 0) console.log(`  ${yellow(`⚠ ${unscoped} unscoped skill${unscoped > 1 ? "s" : ""} — add allowed-tools to SKILL.md frontmatter`)}`); // NOSONAR
+      if (withHazards > 0) console.log(`  ${red(`✗ ${withHazards} skill${withHazards > 1 ? "s" : ""} with static hazard findings — review before syncing`)}`); // NOSONAR
       if (unscoped === 0 && withHazards === 0) console.log(`  ${green("✓ All skills scoped and no static hazards found")}`);
       console.log();
     });

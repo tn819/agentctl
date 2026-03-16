@@ -346,7 +346,7 @@ export function registerSync(program: Command): void {
             console.log(`\n  ${bold("Skills")}`);
             for (const issue of skillIssues) {
               const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
-              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`);
+              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
             }
           }
 
@@ -354,7 +354,7 @@ export function registerSync(program: Command): void {
             console.log(`\n  ${bold("MCP Servers")}`);
             for (const issue of mcpIssues) {
               const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
-              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`);
+              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
             }
           }
 
