@@ -37,7 +37,7 @@ export interface SkillHazard {
 
 /** Inline array: `[Bash, Read, Write]` */
 function parseInlineArray(value: string): string[] | null {
-  const m = value.match(/^\[(.+)\]$/);
+  const m = value.match(/^\[([^\]]+)\]$/);
   if (!m) return null;
   return m[1]!.split(",").map(s => s.trim()).filter(Boolean);
 }
@@ -93,6 +93,7 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
 
 /** Read and parse SKILL.md from a skill directory. Returns `{}` if missing. */
 export function readSkillMeta(skillDir: string): SkillMeta {
+  assertSafePath(skillDir);
   const skillMd = join(skillDir, "SKILL.md");
   if (!existsSync(skillMd)) return {};
   return parseSkillFrontmatter(readFileSync(skillMd, "utf-8"));
@@ -109,12 +110,12 @@ export function scanSkillHazards(skillDir: string): SkillHazard[] {
   const hazards: SkillHazard[] = [];
 
   const PATTERNS: Array<{ re: RegExp; label: string }> = [
-    { re: /curl\s+.+\|\s*(ba)?sh/i,              label: "curl-pipe-sh" },
-    { re: /wget\s+.+\|\s*(ba)?sh/i,              label: "wget-pipe-sh" },
-    { re: /base64\s+-d\s*\|\s*(ba)?sh/i,         label: "base64-pipe-sh" },
-    { re: /rm\s+-[a-z]*r[a-z]*f?\s+\//i,         label: "rm-rf-absolute" },
-    { re: /\beval\s*["'`$\(]/,                    label: "eval-exec" },
-    { re: /\$\(.*curl|`.*curl/i,                  label: "subshell-curl" },
+    { re: /curl\s+[^\n]+\|\s*(ba)?sh/i,           label: "curl-pipe-sh" },
+    { re: /wget\s+[^\n]+\|\s*(ba)?sh/i,           label: "wget-pipe-sh" },
+    { re: /base64\s+-d\s*\|\s*(ba)?sh/i,          label: "base64-pipe-sh" },
+    { re: /rm\s+-[a-z]*r[a-z]*f?\s+\//i,          label: "rm-rf-absolute" },
+    { re: /\beval\s*["'`$\(]/,                     label: "eval-exec" },
+    { re: /\$\([^\n]*curl|`[^\n]*curl/i,           label: "subshell-curl" },
   ];
 
   function scanFile(filePath: string): void {

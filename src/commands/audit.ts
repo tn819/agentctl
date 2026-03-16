@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import type { Command } from "commander";
 import { AGENTS_DIR } from "../lib/config";
 import { AuditStore } from "../lib/audit";
@@ -70,17 +70,19 @@ export function registerAudit(program: Command): void {
         return;
       }
 
-      const rows = skills.filter(skill => statSync(join(skillsDir, skill)).isDirectory()).map(skill => {
-        const skillDir = join(skillsDir, skill);
-        const meta = readSkillMeta(skillDir);
-        const hazards = scanSkillHazards(skillDir);
-        return {
-          name:         skill,
-          allowedTools: meta.allowedTools ?? null,
-          scoped:       meta.allowedTools !== undefined,
-          hazards,
-        };
-      });
+      const rows = skills
+        .filter(skill => skill === basename(skill) && statSync(join(skillsDir, skill)).isDirectory())
+        .map(skill => {
+          const skillDir = join(skillsDir, skill);
+          const meta = readSkillMeta(skillDir);
+          const hazards = scanSkillHazards(skillDir);
+          return {
+            name:         skill,
+            allowedTools: meta.allowedTools ?? null,
+            scoped:       meta.allowedTools !== undefined,
+            hazards,
+          };
+        });
 
       if (opts.json) {
         console.log(JSON.stringify(rows, null, 2));
