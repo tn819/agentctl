@@ -76,7 +76,6 @@ teardown() {
 
 @test "agent start: creates Docker container and returns session id" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   run agentctl agent start --provider docker
   [ "$status" -eq 0 ]
@@ -85,7 +84,6 @@ teardown() {
 
 @test "agent exec: runs command in Docker container" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
@@ -99,7 +97,6 @@ teardown() {
 
 @test "agent write-file: writes file into container workspace" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
@@ -115,7 +112,6 @@ teardown() {
 
 @test "agent read-file: reads file from container workspace" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
@@ -130,7 +126,6 @@ teardown() {
 
 @test "agent audit: Docker tool calls recorded in audit.db" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
@@ -145,7 +140,6 @@ teardown() {
 
 @test "agent destroy: container is removed after session ends" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
@@ -160,7 +154,6 @@ teardown() {
 
 @test "agent: container network is isolated by default" {
   skip_if_missing docker
-  skip "vakt agent command not yet implemented — see issue #62"
 
   local session_id
   session_id=$(agentctl agent start --provider docker --format id)
