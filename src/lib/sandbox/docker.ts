@@ -106,6 +106,11 @@ export class DockerSandboxProvider implements SandboxProvider {
       body: JSON.stringify({ Detach: false, Tty: false }),
     });
 
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Docker API POST /exec/${execId}/start → ${res.status}: ${text}`);
+    }
+
     const buf = await res.arrayBuffer();
     const { stdout, stderr } = parseMuxStream(buf);
 
@@ -115,10 +120,10 @@ export class DockerSandboxProvider implements SandboxProvider {
 
   async writeFile(handle: SandboxHandle, path: string, content: string): Promise<void> {
     const b64 = Buffer.from(content).toString("base64");
-    await this.exec(handle, [
-      "sh", "-c",
-      `mkdir -p "$(dirname '${path}')" && printf '%s' '${b64}' | base64 -d > '${path}'`,
-    ]);
+    // Create parent directory (shell -c is safe here: path comes from mkdirCmd array arg)
+    await this.exec(handle, ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\"", "--", path]);
+    // Write via printf + base64 -d, all args in array — no shell interpolation of user data
+    await this.exec(handle, ["sh", "-c", "printf '%s' \"$1\" | base64 -d > \"$2\"", "--", b64, path]);
   }
 
   async readFile(handle: SandboxHandle, path: string): Promise<string> {
