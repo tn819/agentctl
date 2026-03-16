@@ -1,5 +1,5 @@
 import { join, dirname } from "node:path";
-import { existsSync, mkdirSync, symlinkSync, readdirSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, readdirSync, readFileSync } from "node:fs";
 import { z } from "zod";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfig, McpServer, Provider, StdioServer, HttpServer } from "./schemas";

@@ -5,5 +5,14 @@ fi
 export PATH="/usr/bin:/bin:/usr/local/bin:${BUN_BIN}:/opt/homebrew/bin:${PATH}"
 export AGENTS_SECRETS_BACKEND="env"  # never trigger macOS keychain dialogs in hook subprocesses
 
+# Lint staged production TypeScript files (sonarjs + @typescript-eslint rules)
+# Only lints files you're actually changing — pre-existing violations in unmodified
+# files don't block commits. Run `bunx eslint src/` to see the full picture.
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep '^src/.*\.ts$' | grep -v '\.test\.ts$')
+if [ -n "$STAGED_TS" ]; then
+  # shellcheck disable=SC2086
+  bunx eslint $STAGED_TS
+fi
+
 # Fast unit tests (~40ms)
 bun test src/
