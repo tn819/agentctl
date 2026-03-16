@@ -18,6 +18,7 @@ import { registerPull } from "./commands/pull";
 import { registerLockdown } from "./commands/lockdown";
 import { registerWatch } from "./commands/watch";
 import { registerRegistry } from "./commands/registry";
+import { registerAgent } from "./commands/agent";
 
 const program = new Command();
 program
@@ -43,5 +44,6 @@ registerPull(program);
 registerLockdown(program);
 registerWatch(program);
 registerRegistry(program);
+registerAgent(program);
 
 program.parse();
