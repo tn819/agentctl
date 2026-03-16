@@ -1,15 +1,48 @@
 // src/commands/sync.ts
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
-import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome } from "../lib/config";
+import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome, AGENTS_DIR } from "../lib/config";
+import { isSkillClassified, setSkillGlobal } from "../lib/skills";
+import { promptBoolean } from "../lib/prompt";
 import { loadPolicy } from "../lib/policy";
 import { AuditStore } from "../lib/audit";
 import { resolveAll, formatForProvider, writeJsonConfig, writeTomlConfig, syncSkills } from "../lib/resolver";
 import type { ResolvedConfig } from "../lib/resolver";
 import type { Provider, McpConfig } from "../lib/schemas";
 import type { Policy } from "../lib/schemas";
+
+function loadRawMcpConfigEntries(agentsDir: string): Record<string, unknown> {
+  const configPath = join(agentsDir, "mcp-config.json");
+  if (!existsSync(configPath)) return {};
+  try {
+    return JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function getUnclassifiedServers(agentsDir: string): string[] {
+  const raw = loadRawMcpConfigEntries(agentsDir);
+  return Object.entries(raw)
+    .filter(([k, v]) => !k.startsWith("_") && typeof v === "object" && v !== null && !("global" in v))
+    .map(([k]) => k);
+}
+
+function getUnclassifiedSkills(agentsDir: string): string[] {
+  const skillsDir = join(agentsDir, "skills");
+  if (!existsSync(skillsDir)) return [];
+  try {
+    return readdirSync(skillsDir).filter(entry => {
+      const skillPath = join(skillsDir, entry);
+      return statSync(skillPath).isDirectory() && !isSkillClassified(skillPath);
+    });
+  } catch {
+    return [];
+  }
+}
 
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -203,7 +236,7 @@ export function registerSync(program: Command): void {
       const withProxy = opts.withProxy ?? false;
       const all = opts.all ?? false;
 
-      const agentsDir = (await import("../lib/config")).AGENTS_DIR;
+      const agentsDir = AGENTS_DIR;
       if (!existsSync(agentsDir)) {
         console.error("Run 'vakt init' first");
         process.exit(1);
@@ -212,6 +245,35 @@ export function registerSync(program: Command): void {
       console.log(bold("vakt sync"));
       console.log(dim(`Source: ${agentsDir}`));
       if (dryRun) console.log(yellow("DRY RUN — no changes will be made"));
+
+      // Prompt for unclassified resources (only when not --all and not --dry-run)
+      if (!all && !dryRun) {
+        const unclassifiedServers = getUnclassifiedServers(agentsDir);
+        const unclassifiedSkills = getUnclassifiedSkills(agentsDir);
+
+        if (unclassifiedServers.length > 0 || unclassifiedSkills.length > 0) {
+          console.log(`\n${yellow("⚠")}  Unclassified resources found — please classify each:`);
+
+          if (unclassifiedServers.length > 0) {
+            const configPath = join(agentsDir, "mcp-config.json");
+            const rawConfig = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, Record<string, unknown>>;
+            for (const name of unclassifiedServers) {
+              const isGlobal = await promptBoolean(`  Server '${name}': sync globally to all providers?`);
+              rawConfig[name]!["global"] = isGlobal;
+            }
+            writeFileSync(configPath, JSON.stringify(rawConfig, null, 2) + "\n");
+          }
+
+          if (unclassifiedSkills.length > 0) {
+            const skillsDirPath = join(agentsDir, "skills");
+            for (const skill of unclassifiedSkills) {
+              const skillPath = join(skillsDirPath, skill);
+              const isGlobal = await promptBoolean(`  Skill '${skill}': sync globally to all providers?`);
+              setSkillGlobal(skillPath, isGlobal);
+            }
+          }
+        }
+      }
 
       const mcpConfig = loadMcpConfig();
       const policy = loadPolicy();

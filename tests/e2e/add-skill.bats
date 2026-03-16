@@ -127,3 +127,37 @@ teardown() {
   assert_file_exists "$AGENTS_DIR/skills/test-skill/SKILL.md"
   assert_file_contains "$AGENTS_DIR/skills/test-skill/SKILL.md" "test-skill"
 }
+
+@test "add-skill prompts for global when no flag given and user answers y" {
+  local skill_dir
+  skill_dir="$(mktemp -d)"
+  local skill_path="$skill_dir/prompt-global-skill"
+  mkdir -p "$skill_path"
+  create_test_skill "$skill_path" "prompt-global-skill"
+
+  run bash -c "echo 'y' | '$AGENTCTL' add-skill '$skill_path' prompt-global-skill"
+  [ "$status" -eq 0 ]
+
+  local skill_md="$AGENTS_DIR/skills/prompt-global-skill/SKILL.md"
+  [ -f "$skill_md" ]
+  grep -q "global: true" "$skill_md"
+
+  rm -rf "$skill_dir"
+}
+
+@test "add-skill prompts for global when no flag given and user answers n" {
+  local skill_dir
+  skill_dir="$(mktemp -d)"
+  local skill_path="$skill_dir/prompt-local-skill"
+  mkdir -p "$skill_path"
+  create_test_skill "$skill_path" "prompt-local-skill"
+
+  run bash -c "echo 'n' | '$AGENTCTL' add-skill '$skill_path' prompt-local-skill"
+  [ "$status" -eq 0 ]
+
+  local skill_md="$AGENTS_DIR/skills/prompt-local-skill/SKILL.md"
+  [ -f "$skill_md" ]
+  grep -q "global: false" "$skill_md"
+
+  rm -rf "$skill_dir"
+}

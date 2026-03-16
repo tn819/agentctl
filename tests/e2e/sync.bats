@@ -330,3 +330,75 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
   [ "$status" -eq 0 ]
   [[ "$output" == *"DEFINITELY_NOT_SET"* ]]
 }
+
+@test "sync prompts for unclassified MCP server and classifies on y" {
+  agentctl add-server classified-srv npx -y test-mcp --global
+  # Add an unclassified server (no global field) by editing JSON directly
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run bash -c "echo 'y' | '$AGENTCTL' sync --mcp-only"
+  [ "$status" -eq 0 ]
+
+  # The server should now be classified as global: true
+  python3 -c "
+import json, sys
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+assert cfg.get('unclassified-srv', {}).get('global') == True, 'expected global: true, got: ' + repr(cfg.get('unclassified-srv'))
+"
+}
+
+@test "sync prompts for unclassified skill and classifies on n" {
+  local skill_dir
+  skill_dir="$(mktemp -d)"
+  # Create a skill with no global field in SKILL.md
+  mkdir -p "$skill_dir/unclassified-skill"
+  cat > "$skill_dir/unclassified-skill/SKILL.md" << 'SKILLEOF'
+---
+name: unclassified-skill
+---
+
+# Unclassified Skill
+SKILLEOF
+  # Link it directly (bypass add-skill prompt)
+  mkdir -p "$AGENTS_DIR/skills"
+  ln -s "$skill_dir/unclassified-skill" "$AGENTS_DIR/skills/unclassified-skill"
+
+  run bash -c "echo 'n' | '$AGENTCTL' sync --skills-only"
+  [ "$status" -eq 0 ]
+
+  grep -q "global: false" "$AGENTS_DIR/skills/unclassified-skill/SKILL.md"
+
+  rm -rf "$skill_dir"
+}
+
+@test "sync --dry-run does not prompt for unclassified resources" {
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run agentctl sync --dry-run
+  [ "$status" -eq 0 ]
+  # dry-run should not prompt or classify; server remains unclassified
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+assert 'global' not in cfg.get('unclassified-srv', {}), 'server should remain unclassified in dry-run'
+"
+}
+
+@test "sync --all does not prompt for unclassified resources" {
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run agentctl sync --all
+  [ "$status" -eq 0 ]
+}

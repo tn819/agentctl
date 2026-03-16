@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join, basename } from "node:path";
 
 /**
  * Parse YAML frontmatter from a SKILL.md file.
@@ -30,4 +30,41 @@ export function isSkillGlobal(skillDir: string): boolean {
   const fm = parseFrontmatter(content);
   if (!("global" in fm)) return true;
   return fm["global"] !== "false";
+}
+
+/**
+ * Returns true if a skill has an explicit `global:` field in its SKILL.md.
+ * Skills without this field are "unclassified" and should trigger a prompt during sync/add.
+ */
+export function isSkillClassified(skillDir: string): boolean {
+  const skillMd = join(skillDir, "SKILL.md");
+  if (!existsSync(skillMd)) return false;
+  const content = readFileSync(skillMd, "utf-8");
+  const fm = parseFrontmatter(content);
+  return "global" in fm;
+}
+
+/**
+ * Write or update the `global:` field in a skill's SKILL.md frontmatter.
+ * Creates SKILL.md if it does not exist.
+ */
+export function setSkillGlobal(skillDir: string, value: boolean): void {
+  const skillMd = join(skillDir, "SKILL.md");
+  if (!existsSync(skillMd)) {
+    writeFileSync(skillMd, `---\nname: ${basename(skillDir)}\nglobal: ${value}\n---\n`);
+    return;
+  }
+  let content = readFileSync(skillMd, "utf-8");
+  if (content.match(/^---/)) {
+    if (content.match(/\nglobal:/)) {
+      // Replace existing global line
+      content = content.replace(/\nglobal: (true|false)/, `\nglobal: ${value}`);
+    } else {
+      // Inject after opening ---
+      content = content.replace(/^---\r?\n/, `---\nglobal: ${value}\n`);
+    }
+    writeFileSync(skillMd, content);
+  } else {
+    writeFileSync(skillMd, `---\nglobal: ${value}\n---\n\n` + content);
+  }
 }
