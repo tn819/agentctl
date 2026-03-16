@@ -90,6 +90,12 @@ async function syncProviderMcp(
   }
 }
 
+export function filterGlobal(mcpConfig: McpConfig): McpConfig {
+  return Object.fromEntries(
+    Object.entries(mcpConfig).filter(([, server]) => server.global === true)
+  );
+}
+
 function checkRegistryPolicy(policy: Policy | null, mcpConfig: McpConfig): void {
   if (policy?.registryPolicy !== "registry-only") return;
   const unverified = Object.keys(mcpConfig).filter(
@@ -188,11 +194,13 @@ export function registerSync(program: Command): void {
     .option("--mcp-only", "Sync MCP servers only")
     .option("--skills-only", "Sync skills only")
     .option("--with-proxy", "Route provider configs through vakt proxy for runtime policy + audit (opt-in)")
-    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean }) => {
+    .option("--all", "Sync all resources including local-only (default: global only)")
+    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean }) => {
       const dryRun = opts.dryRun ?? false;
       const mcpOnly = opts.mcpOnly ?? false;
       const skillsOnly = opts.skillsOnly ?? false;
       const withProxy = opts.withProxy ?? false;
+      const all = opts.all ?? false;
 
       const agentsDir = (await import("../lib/config")).AGENTS_DIR;
       if (!existsSync(agentsDir)) {
@@ -216,7 +224,8 @@ export function registerSync(program: Command): void {
         .filter((p): p is Provider => p !== undefined);
 
       if (!skillsOnly) {
-        const { resolved, allMissing } = await resolveAll(mcpConfig, userConfig.paths);
+        const configToSync = all ? mcpConfig : filterGlobal(mcpConfig);
+        const { resolved, allMissing } = await resolveAll(configToSync, userConfig.paths);
         await syncMcpServers(enabledProviders, resolved, allMissing, withProxy, dryRun);
       }
 
