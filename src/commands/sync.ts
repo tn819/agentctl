@@ -1,11 +1,11 @@
 // src/commands/sync.ts
 import { join } from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, realpathSync } from "node:fs";
+import { statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { loadMcpConfig, loadAgentConfig, loadProviders, resolveProviderConfigPath, expandHome, AGENTS_DIR } from "../lib/config";
-import { isSkillClassified, setSkillGlobal } from "../lib/skills";
+import { isSkillClassified, setSkillGlobal, isGitRepo, fetchAndCheckSkill, pullSkill } from "../lib/skills";
 import { promptBoolean } from "../lib/prompt";
 import { loadPolicy } from "../lib/policy";
 import { AuditStore } from "../lib/audit";
@@ -220,6 +220,52 @@ async function syncSkillsToProviders(
   }
 }
 
+async function refreshSkills(agentsDir: string, dryRun: boolean): Promise<void> {
+  const skillsDir = join(agentsDir, "skills");
+  if (!existsSync(skillsDir)) return;
+
+  let anyChecked = false;
+  for (const entry of readdirSync(skillsDir)) {
+    const skillPath = join(skillsDir, entry);
+    // resolve symlinks — the actual git repo may be the symlink target
+    let realPath: string;
+    try {
+      realPath = realpathSync(skillPath);
+    } catch {
+      realPath = skillPath;
+    }
+    if (!isGitRepo(realPath)) continue;
+
+    anyChecked = true;
+    const updateInfo = fetchAndCheckSkill(realPath);
+    if (!updateInfo) {
+      // up to date
+      continue;
+    }
+
+    const { behind, filesSummary } = updateInfo;
+    const commits = behind === 1 ? "1 new commit" : `${behind} new commits`;
+
+    if (dryRun) {
+      info(`[dry-run] Skill '${entry}' is ${commits} behind upstream (${filesSummary})`);
+      continue;
+    }
+
+    const doUpdate = await promptBoolean(
+      `  Skill '${entry}' has ${commits} upstream (${filesSummary}). Update?`
+    );
+    if (doUpdate) {
+      const ok2 = pullSkill(realPath);
+      if (ok2) ok(`updated skill: ${entry}`);
+      else err(`git pull failed for skill: ${entry}`);
+    } else {
+      info(`skipped: ${entry}`);
+    }
+  }
+
+  if (!anyChecked) return; // no git-backed skills, nothing to report
+}
+
 export function registerSync(program: Command): void {
   program
     .command("sync")
@@ -229,12 +275,14 @@ export function registerSync(program: Command): void {
     .option("--skills-only", "Sync skills only")
     .option("--with-proxy", "Route provider configs through vakt proxy for runtime policy + audit (opt-in)")
     .option("--all", "Sync all resources including local-only (default: global only)")
-    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean }) => {
+    .option("--no-update-skills", "Skip checking for upstream skill updates")
+    .action(async (opts: { dryRun?: boolean; mcpOnly?: boolean; skillsOnly?: boolean; withProxy?: boolean; all?: boolean; updateSkills?: boolean }) => {
       const dryRun = opts.dryRun ?? false;
       const mcpOnly = opts.mcpOnly ?? false;
       const skillsOnly = opts.skillsOnly ?? false;
       const withProxy = opts.withProxy ?? false;
       const all = opts.all ?? false;
+      const noUpdateSkills = opts.updateSkills === false;
 
       const agentsDir = AGENTS_DIR;
       if (!existsSync(agentsDir)) {
@@ -293,6 +341,10 @@ export function registerSync(program: Command): void {
       }
 
       if (!mcpOnly) {
+        if (!noUpdateSkills) {
+          console.log(`\n${bold("── Skill Updates ───────────────────────────────────────────")}`);
+          await refreshSkills(agentsDir, dryRun);
+        }
         await syncSkillsToProviders(enabledProviders, agentsDir, dryRun, !all);
       }
 

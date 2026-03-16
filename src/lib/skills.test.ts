@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { isSkillGlobal, isSkillClassified } from "./skills";
+import { isSkillGlobal, isSkillClassified, isGitRepo } from "./skills";
 
 const tmp = "/tmp/vakt-skills-test";
 
@@ -33,6 +33,20 @@ describe("isSkillGlobal", () => {
   test("returns true for skill with no SKILL.md", () => {
     mkdirSync(tmp, { recursive: true });
     expect(isSkillGlobal(tmp)).toBe(true);
+    rmSync(tmp, { recursive: true });
+  });
+});
+
+describe("isGitRepo", () => {
+  test("returns true for a real git repo", () => {
+    // The project root is a git repo — use the worktree
+    const projectRoot = new URL("../../", import.meta.url).pathname;
+    expect(isGitRepo(projectRoot)).toBe(true);
+  });
+
+  test("returns false for a plain directory", () => {
+    const tmp = mkdtempSync("/tmp/not-a-git-");
+    expect(isGitRepo(tmp)).toBe(false);
     rmSync(tmp, { recursive: true });
   });
 });
