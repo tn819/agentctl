@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- `global` field on MCP server entries in `mcp-config.json` — opt-in to sync across tools (default: `false`)
+- `global` field in SKILL.md frontmatter — opt-in to sync skill to providers (default: `true` for backwards compat)
+- `--global` flag on `vakt add-skill` and `vakt add-server`
+- `--all` flag on `vakt sync` to sync all resources including local-only
+- `[global]`/`[local]` tags in `vakt list` output
+- `_note` and other `_*` keys in `mcp-config.json` are silently stripped (human-readable comments)
+
+### Changed
+- `vakt sync` now only syncs `global: true` MCP servers and skills by default (use `--all` to sync everything)
+- `global` is stripped before writing to provider configs (providers don't understand it)
+
 ## [0.0.1] - 2025-03-06
 
 ### Added
