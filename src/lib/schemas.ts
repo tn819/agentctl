@@ -229,10 +229,14 @@ export const PolicySchema = z.object({
   servers: z.record(z.string(), PolicyServerRulesSchema).optional(),
   skills: z.object({
     /**
-     * When true, `vakt sync` warns (or exits 1 with --strict-skills) for any
-     * installed skill that has no `allowed-tools` declaration in its SKILL.md.
+     * Unscoped skills (no `allowed-tools`) become gate errors instead of warnings.
      */
     scopeRequired: z.boolean().default(false),
+    /**
+     * Skills with static hazard findings (curl-pipe-sh, eval-exec, etc.)
+     * become gate errors instead of warnings.
+     */
+    blockOnHazards: z.boolean().default(false),
   }).optional(),
   _meta: z.object({
     lockedKeys: z.array(z.string()).optional(),

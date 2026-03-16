@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
 import { AGENTS_DIR } from "../lib/config";
@@ -70,7 +70,7 @@ export function registerAudit(program: Command): void {
         return;
       }
 
-      const rows = skills.map(skill => {
+      const rows = skills.filter(skill => statSync(join(skillsDir, skill)).isDirectory()).map(skill => {
         const skillDir = join(skillsDir, skill);
         const meta = readSkillMeta(skillDir);
         const hazards = scanSkillHazards(skillDir);

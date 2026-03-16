@@ -177,7 +177,7 @@ assert 'allow' in results, 'missing allow entry'
   local cursor_config="$HOME/.cursor/mcp.json"
   mkdir -p "$(dirname "$cursor_config")"
 
-  run vakt sync --with-proxy
+  run vakt sync --with-proxy --force
   [ "$status" -eq 0 ]
 
   [ -f "$cursor_config" ]
@@ -205,7 +205,7 @@ assert 'vakt-test' in server.get('args', []), 'expected server name in args'
   local cursor_config="$HOME/.cursor/mcp.json"
   mkdir -p "$(dirname "$cursor_config")"
 
-  run vakt sync --with-proxy
+  run vakt sync --with-proxy --force
   [ "$status" -eq 0 ]
 
   python3 -c "

@@ -48,7 +48,7 @@ An optional `skills` section is added to `PolicySchema`:
 }
 ```
 
-`scopeRequired: true` means: warn (or, with `--strict-skills`, error) when a skill with no `allowed-tools` declaration is encountered during `vakt sync`. Default is `false` — no behaviour change for existing users.
+`scopeRequired: true` means: the pre-sync safety gate treats an unscoped skill as an error (default severity is `warn`). Default is `false` — no behaviour change for existing users.
 
 ### 3. `vakt list` output (`src/commands/list.ts`)
 
@@ -65,14 +65,18 @@ credential-best-prac…  Bash, Write              ✓        ✓ allow
 find-skills            —                        ⚠ no     —
 ```
 
-- `--json` emits `{ name, allowedTools, scoped, policyResults }[]` for piping / SIEM integration.
-- `--policy-check` maps each declared tool name against `PolicyEngine.checkTool("*", toolName)` — the `"*"` wildcard server — to catch broad deny patterns such as `*exec*` or `*shell*`. This is best-effort: the namespaces differ, and the mapping is documented in the output.
+- `--json` emits `{ name, allowedTools, scoped, hazards }[]` for piping / SIEM integration.
+
+> **Future work:** A `--policy-check` flag is planned to map each declared tool name against `PolicyEngine.checkTool("*", toolName)` to catch broad deny patterns. Not implemented in this iteration due to the namespace mismatch between Claude Code tool names and MCP tool names (documented in Alternatives Considered).
 
 ### 5. `vakt sync` integration (`src/commands/sync.ts`)
 
-During `syncSkillsToProviders()`, each skill's meta is read. When `policy.skills.scopeRequired` is set, an unscoped skill produces a `warn()` line (yellow, non-fatal). Adding `--strict-skills` to the `vakt sync` invocation escalates this to an `err()` + `process.exit(1)`.
+A unified pre-sync safety gate (`src/lib/sync-gate.ts`) runs before any writes. It checks both skills (unscoped, hazards) and MCP servers (unpinned-npx, http-url, unverified), then presents a summary. Two flags control gate behaviour:
 
-Behaviour mirrors the existing `registryPolicy` warn-vs-block pattern — familiar to existing users.
+- `--ci` — non-interactive; gate errors block sync (exit 1), warnings pass through
+- `--force` — skip the gate entirely (useful in scripts and tests)
+
+When `policy.skills.scopeRequired` is set, the gate escalates unscoped-skill findings from `warn` to `error`. When `policy.skills.blockOnHazards` is set, hazard findings are escalated to `error`. This replaces the earlier `--strict-skills` design (dropped before shipping) with a more general gate that covers both skills and MCP servers.
 
 ### 6. `skill-creator/SKILL.md` update
 
@@ -108,7 +112,7 @@ Keeping skill audit as a subcommand of the existing `audit` command (`vakt audit
 
 Making `scopeRequired: true` block the sync rather than warn would enforce the policy strictly.
 
-**Why not chosen:** vakt's existing `registryPolicy` tiers (`allow-unverified`, `warn-unverified`, `registry-only`) establish a warn-first default. Hard-blocking without user opt-in (`--strict-skills`) would break existing workflows for teams that haven't yet added `allowed-tools` to their bundled skills — including vakt's own. Progressive opt-in is more practical.
+**Why not chosen:** vakt's existing `registryPolicy` tiers (`allow-unverified`, `warn-unverified`, `registry-only`) establish a warn-first default. Hard-blocking without user opt-in (`policy.skills.scopeRequired` + `--ci`) would break existing workflows for teams that haven't yet added `allowed-tools` to their bundled skills — including vakt's own. Progressive opt-in is more practical.
 
 ## Consequences
 
@@ -117,7 +121,7 @@ Making `scopeRequired: true` block the sync rather than warn would enforce the p
 - Operators get a skills.sh/audits equivalent view for their local install — unscoped skills are immediately visible
 - `vakt audit skills --json` is pipeable to SIEM, scripts, or CI gates
 - Skills that declare `allowed-tools` become auditable as a class; unscoped skills are explicitly flagged rather than silently assumed safe
-- `--strict-skills` gives teams a CI-enforced gate against unscoped skill installs
+- `--ci` + `policy.skills.scopeRequired` gives teams a CI-enforced gate against unscoped skill installs
 - No new runtime dependency; parser is < 50 lines of focused regex
 - vakt's own bundled skills will be updated to add `allowed-tools` declarations as part of this work, dogfooding the feature
 

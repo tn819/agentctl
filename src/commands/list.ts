@@ -45,7 +45,7 @@ function printSkills(skillsDir: string): void {
         const skillDir = join(skillsDir, skill);
         const meta = readSkillMeta(skillDir);
         const desc = meta.description ? dim(meta.description.split("\n")[0]!) : "";
-        const tag = globalTag(isSkillGlobal(skillDir));
+        const tag = globalTag(isSkillGlobal(skillDir) ? "global" : "local");
         const tools = meta.allowedTools
           ? dim(`[tools: ${meta.allowedTools.join(", ")}]`)
           : yellow("[unscoped]");

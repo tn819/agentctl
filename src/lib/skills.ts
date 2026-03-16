@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -112,7 +112,7 @@ export function scanSkillHazards(skillDir: string): SkillHazard[] {
     { re: /curl\s+.+\|\s*(ba)?sh/i,              label: "curl-pipe-sh" },
     { re: /wget\s+.+\|\s*(ba)?sh/i,              label: "wget-pipe-sh" },
     { re: /base64\s+-d\s*\|\s*(ba)?sh/i,         label: "base64-pipe-sh" },
-    { re: /rm\s+-[a-z]*r[a-z]*f?\s+\//i,         label: "rm-rf-root" },
+    { re: /rm\s+-[a-z]*r[a-z]*f?\s+\//i,         label: "rm-rf-absolute" },
     { re: /\beval\s*["'`$\(]/,                    label: "eval-exec" },
     { re: /\$\(.*curl|`.*curl/i,                  label: "subshell-curl" },
   ];
@@ -136,7 +136,8 @@ export function scanSkillHazards(skillDir: string): SkillHazard[] {
   const scriptsDir = join(skillDir, "scripts");
   if (existsSync(scriptsDir)) {
     for (const f of readdirSync(scriptsDir)) {
-      scanFile(join(scriptsDir, f));
+      const full = join(scriptsDir, f);
+      if (statSync(full).isFile()) scanFile(full);
     }
   }
 
