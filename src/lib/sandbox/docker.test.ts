@@ -38,9 +38,12 @@ describe("DockerSandboxProvider", () => {
   });
 
   it("create: pulls image then calls /containers/create and /containers/{id}/start", async () => {
-    pushMock("");                          // POST /images/create (pull)
-    pushMock({ Id: "container-abc" });   // POST /containers/create
-    pushMock({});                         // POST /containers/container-abc/start
+    pushMock("");                            // POST /images/create (pull)
+    pushMock({ Id: "container-abc" });     // POST /containers/create
+    pushMock({});                           // POST /containers/container-abc/start
+    pushMock({ Id: "exec-mkdir" });        // POST /exec (mkdir -p /workspace)
+    pushMock(new ArrayBuffer(0));          // POST /exec/exec-mkdir/start
+    pushMock({ ExitCode: 0 });             // GET  /exec/exec-mkdir/json
 
     const handle = await provider.create({ name: "test-agent" });
 

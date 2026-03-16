@@ -104,7 +104,10 @@ export class DockerSandboxProvider implements SandboxProvider {
 
     const { Id } = await this.req<{ Id: string }>("POST", "/containers/create", body);
     await this.req("POST", `/containers/${Id}/start`);
-    return { id: Id, provider: this.name };
+    // Ensure /workspace always exists (may be empty if no repo bind-mounted)
+    const handle = { id: Id, provider: this.name };
+    await this.exec(handle, ["mkdir", "-p", "/workspace"]);
+    return handle;
   }
 
   async exec(handle: SandboxHandle, cmd: string[], env?: Record<string, string>): Promise<ExecResult> {
