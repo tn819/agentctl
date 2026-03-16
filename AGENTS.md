@@ -79,6 +79,8 @@ vakt/
 │       ├── otel.ts
 │       ├── policy.test.ts
 │       ├── policy.ts
+│       ├── prompt.test.ts
+│       ├── prompt.ts
 │       ├── registry.test.ts
 │       ├── registry.ts
 │       ├── remote.ts
