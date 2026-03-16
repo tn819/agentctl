@@ -3,7 +3,7 @@ status: accepted
 date: 2026-03-16
 ---
 
-# 0003 — SandboxProvider: backend-agnostic container abstraction for coding agent sessions
+# 0005 — SandboxProvider: backend-agnostic container abstraction for coding agent sessions
 
 ## Context
 
