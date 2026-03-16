@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { loadMcpConfig, loadAgentConfig, expandPaths, expandHome, loadProviders, resolveProviderConfigPath } from "./config";
+import { AgentConfigSchema } from "./schemas";
 
 // AGENTS_DIR is set by setup.ts preload — points to a sandboxed tmp directory
 const AGENTS = process.env["AGENTS_DIR"]!;
@@ -100,5 +101,31 @@ describe("resolveProviderConfigPath", () => {
     expect(path.length).toBeGreaterThan(0);
     expect(path).not.toContain("$HOME");
     expect(path).not.toContain("~");
+  });
+});
+
+describe("AgentConfigSchema runtime docker", () => {
+  it("accepts docker as runtime default", () => {
+    const result = AgentConfigSchema.safeParse({
+      runtime: { default: "docker" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts runtime.docker config block", () => {
+    const result = AgentConfigSchema.safeParse({
+      runtime: {
+        default: "docker",
+        docker: {
+          socket: "/var/run/docker.sock",
+          image: "node:20-slim",
+          memory: "512m",
+          cpus: "1",
+          network: "none",
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.runtime?.docker?.socket).toBe("/var/run/docker.sock");
   });
 });
