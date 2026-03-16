@@ -433,11 +433,17 @@ SKILLEOF
   run agentctl add-skill "$skill_src/my-git-skill" --global
   [ "$status" -eq 0 ]
 
-  # Add a new commit to upstream
-  echo "updated" >> "$skill_src/my-git-skill/SKILL.md"
-  git -C "$skill_src/my-git-skill" add SKILL.md
-  git -C "$skill_src/my-git-skill" commit -m "upstream update"
-  git -C "$skill_src/my-git-skill" push origin main
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "upstream update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
 
   # sync with update accepted
   run bash -c "unset GIT_DIR GIT_WORK_TREE; echo 'y' | '$AGENTCTL' sync --skills-only"
@@ -466,11 +472,17 @@ SKILLEOF
   run agentctl add-skill "$skill_src/no-update-skill" --global
   [ "$status" -eq 0 ]
 
-  # Push an upstream change
-  echo "new" >> "$skill_src/no-update-skill/SKILL.md"
-  git -C "$skill_src/no-update-skill" add SKILL.md
-  git -C "$skill_src/no-update-skill" commit -m "update"
-  git -C "$skill_src/no-update-skill" push origin main
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
 
   run agentctl sync --skills-only --no-update-skills
   [ "$status" -eq 0 ]
@@ -499,11 +511,17 @@ SKILLEOF
   run agentctl add-skill "$skill_src/dry-run-skill" --global
   [ "$status" -eq 0 ]
 
-  # Push an upstream change
-  echo "new" >> "$skill_src/dry-run-skill/SKILL.md"
-  git -C "$skill_src/dry-run-skill" add SKILL.md
-  git -C "$skill_src/dry-run-skill" commit -m "update"
-  git -C "$skill_src/dry-run-skill" push origin main
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
 
   run agentctl sync --skills-only --dry-run
   [ "$status" -eq 0 ]

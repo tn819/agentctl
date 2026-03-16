@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { isSkillGlobal, isSkillClassified, isGitRepo } from "./skills";
+import { isSkillGlobal, isSkillClassified, isGitRepo, assertSafePath } from "./skills";
 
 const tmp = "/tmp/vakt-skills-test";
 
@@ -48,6 +48,48 @@ describe("isGitRepo", () => {
     const tmp = mkdtempSync("/tmp/not-a-git-");
     expect(isGitRepo(tmp)).toBe(false);
     rmSync(tmp, { recursive: true });
+  });
+});
+
+describe("assertSafePath", () => {
+  test("accepts a normal absolute path", () => {
+    expect(() => assertSafePath("/tmp/my-skill")).not.toThrow();
+  });
+
+  test("accepts an absolute path with hyphens and underscores", () => {
+    expect(() => assertSafePath("/home/user/.agents/skills/my_skill-v2")).not.toThrow();
+  });
+
+  test("rejects a relative path", () => {
+    expect(() => assertSafePath("relative/path")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with semicolon", () => {
+    expect(() => assertSafePath("/tmp/foo;bar")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with pipe", () => {
+    expect(() => assertSafePath("/tmp/foo|bar")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with ampersand", () => {
+    expect(() => assertSafePath("/tmp/foo&bar")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with backtick", () => {
+    expect(() => assertSafePath("/tmp/foo`bar")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with dollar sign", () => {
+    expect(() => assertSafePath("/tmp/foo$bar")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects a path with angle brackets", () => {
+    expect(() => assertSafePath("/tmp/foo<bar>")).toThrow("Unsafe path rejected");
+  });
+
+  test("rejects an empty string", () => {
+    expect(() => assertSafePath("")).toThrow("Unsafe path rejected");
   });
 });
 

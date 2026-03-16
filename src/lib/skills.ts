@@ -64,9 +64,21 @@ function cleanGitEnv(): NodeJS.ProcessEnv {
 }
 
 /**
+ * Validates that a path is safe to pass to spawnSync as a directory argument.
+ * Rejects relative paths and paths containing shell metacharacters.
+ * This makes the security intent explicit and addresses OS command injection hotspots.
+ */
+export function assertSafePath(p: string): void {
+  if (!p.startsWith("/") || /[;&|`$<>]/.test(p)) {
+    throw new Error(`Unsafe path rejected: ${p}`);
+  }
+}
+
+/**
  * Returns true if the given directory is a git repository.
  */
 export function isGitRepo(skillDir: string): boolean {
+  assertSafePath(skillDir);
   const result = spawnSync("git", ["-C", skillDir, "rev-parse", "--git-dir"], {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "ignore"],
@@ -85,6 +97,7 @@ export type SkillUpdateInfo = {
  * Returns null if not a git repo, no remote, or already up to date.
  */
 export function fetchAndCheckSkill(skillDir: string): SkillUpdateInfo | null {
+  assertSafePath(skillDir);
   if (!isGitRepo(skillDir)) return null;
 
   // git fetch origin (silent — ignore errors if no network)
@@ -121,6 +134,7 @@ export function fetchAndCheckSkill(skillDir: string): SkillUpdateInfo | null {
  * Returns true on success.
  */
 export function pullSkill(skillDir: string): boolean {
+  assertSafePath(skillDir);
   const result = spawnSync("git", ["-C", skillDir, "pull", "--ff-only"], {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "pipe"],

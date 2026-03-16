@@ -1,5 +1,7 @@
-import { describe, test, expect } from "bun:test";
-import { filterGlobal } from "./sync";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { filterGlobal, getUnclassifiedServers, getUnclassifiedSkills } from "./sync";
 import type { McpConfig } from "../lib/schemas";
 
 describe("filterGlobal", () => {
@@ -58,5 +60,93 @@ describe("filterGlobal", () => {
     const result = filterGlobal(cfg);
     expect("http-global" in result).toBe(true);
     expect("http-local" in result).toBe(false);
+  });
+});
+
+describe("getUnclassifiedServers", () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync("/tmp/vakt-sync-test-"); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  test("returns empty array when no mcp-config.json", () => {
+    expect(getUnclassifiedServers(tmp)).toEqual([]);
+  });
+
+  test("returns servers with no global field", () => {
+    writeFileSync(join(tmp, "mcp-config.json"), JSON.stringify({
+      "classified": { command: "npx", global: true },
+      "unclassified": { command: "npx" },
+    }));
+    expect(getUnclassifiedServers(tmp)).toEqual(["unclassified"]);
+  });
+
+  test("returns multiple unclassified servers", () => {
+    writeFileSync(join(tmp, "mcp-config.json"), JSON.stringify({
+      "a": { command: "npx" },
+      "b": { command: "node", global: false },
+      "c": { command: "npx" },
+    }));
+    const result = getUnclassifiedServers(tmp);
+    expect(result).toContain("a");
+    expect(result).toContain("c");
+    expect(result).not.toContain("b");
+  });
+
+  test("ignores _* meta keys", () => {
+    writeFileSync(join(tmp, "mcp-config.json"), JSON.stringify({
+      "_note": "a comment",
+      "server": { command: "npx", global: false },
+    }));
+    expect(getUnclassifiedServers(tmp)).toEqual([]);
+  });
+
+  test("returns empty array when all servers have global field", () => {
+    writeFileSync(join(tmp, "mcp-config.json"), JSON.stringify({
+      "a": { command: "npx", global: true },
+      "b": { command: "node", global: false },
+    }));
+    expect(getUnclassifiedServers(tmp)).toEqual([]);
+  });
+
+  test("returns empty array on malformed JSON", () => {
+    writeFileSync(join(tmp, "mcp-config.json"), "not json");
+    expect(getUnclassifiedServers(tmp)).toEqual([]);
+  });
+});
+
+describe("getUnclassifiedSkills", () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync("/tmp/vakt-skills-test-"); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  test("returns empty array when no skills dir", () => {
+    expect(getUnclassifiedSkills(tmp)).toEqual([]);
+  });
+
+  test("returns skills with no global field in SKILL.md", () => {
+    const skillsDir = join(tmp, "skills");
+    mkdirSync(join(skillsDir, "unclassified"), { recursive: true });
+    writeFileSync(join(skillsDir, "unclassified", "SKILL.md"), "---\nname: unclassified\n---\n");
+    mkdirSync(join(skillsDir, "classified"), { recursive: true });
+    writeFileSync(join(skillsDir, "classified", "SKILL.md"), "---\nname: classified\nglobal: true\n---\n");
+    const result = getUnclassifiedSkills(tmp);
+    expect(result).toContain("unclassified");
+    expect(result).not.toContain("classified");
+  });
+
+  test("returns empty array when all skills are classified", () => {
+    const skillsDir = join(tmp, "skills");
+    mkdirSync(join(skillsDir, "s1"), { recursive: true });
+    writeFileSync(join(skillsDir, "s1", "SKILL.md"), "---\nname: s1\nglobal: true\n---\n");
+    mkdirSync(join(skillsDir, "s2"), { recursive: true });
+    writeFileSync(join(skillsDir, "s2", "SKILL.md"), "---\nname: s2\nglobal: false\n---\n");
+    expect(getUnclassifiedSkills(tmp)).toEqual([]);
+  });
+
+  test("treats skill with no SKILL.md as unclassified", () => {
+    const skillsDir = join(tmp, "skills");
+    mkdirSync(join(skillsDir, "no-skill-md"), { recursive: true });
+    const result = getUnclassifiedSkills(tmp);
+    expect(result).toContain("no-skill-md");
   });
 });

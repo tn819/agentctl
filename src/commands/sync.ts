@@ -24,14 +24,14 @@ function loadRawMcpConfigEntries(agentsDir: string): Record<string, unknown> {
   }
 }
 
-function getUnclassifiedServers(agentsDir: string): string[] {
+export function getUnclassifiedServers(agentsDir: string): string[] {
   const raw = loadRawMcpConfigEntries(agentsDir);
   return Object.entries(raw)
     .filter(([k, v]) => !k.startsWith("_") && typeof v === "object" && v !== null && !("global" in v))
     .map(([k]) => k);
 }
 
-function getUnclassifiedSkills(agentsDir: string): string[] {
+export function getUnclassifiedSkills(agentsDir: string): string[] {
   const skillsDir = join(agentsDir, "skills");
   if (!existsSync(skillsDir)) return [];
   try {
