@@ -4,14 +4,14 @@ import { ProcessManager } from "./process-manager";
 describe("ProcessManager", () => {
   it("lists all configured servers as stopped initially", () => {
     const pm = new ProcessManager(
-      { github: { command: "echo", args: ["ok"] } },
+      { github: { command: "echo", args: ["ok"], global: false } },
       {}
     );
     expect(pm.listStatuses()["github"]!.status).toBe("stopped");
   });
 
   it("starts a server and reports pid + running status", async () => {
-    const pm = new ProcessManager({ test: { command: "sleep", args: ["30"] } }, {});
+    const pm = new ProcessManager({ test: { command: "sleep", args: ["30"], global: false } }, {});
     await pm.start("test");
     const s = pm.listStatuses()["test"]!;
     expect(s.status).toBe("running");
@@ -20,7 +20,7 @@ describe("ProcessManager", () => {
   });
 
   it("stop brings status back to stopped", async () => {
-    const pm = new ProcessManager({ test: { command: "sleep", args: ["30"] } }, {});
+    const pm = new ProcessManager({ test: { command: "sleep", args: ["30"], global: false } }, {});
     await pm.start("test");
     await pm.stop("test");
     expect(pm.listStatuses()["test"]!.status).toBe("stopped");

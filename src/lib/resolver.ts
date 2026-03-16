@@ -1,12 +1,14 @@
 import { join, dirname } from "node:path";
 import { existsSync, mkdirSync, symlinkSync, readdirSync, lstatSync, readFileSync } from "node:fs";
+import { z } from "zod";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfig, McpServer, Provider, StdioServer, HttpServer } from "./schemas";
+import { McpServerSchema } from "./schemas";
 import { expandPaths } from "./config";
 import { resolveSecretRefs } from "./secrets";
 import { isSkillGlobal } from "./skills";
 
-export type ResolvedServer = McpServer;
+export type ResolvedServer = Omit<z.infer<typeof McpServerSchema>, 'global'>;
 export type ResolvedConfig = Record<string, ResolvedServer>;
 
 export async function resolveServer(

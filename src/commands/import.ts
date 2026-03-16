@@ -12,6 +12,7 @@ function parseServerEntry(r: ReturnType<typeof RawProviderServerSchema.parse>): 
       transport: "http",
       url: (r["url"] ?? r["httpUrl"] ?? r["serverUrl"]) as string,
       ...(r["headers"] ? { headers: r["headers"] as Record<string, string> } : {}),
+      global: false,
     };
   }
   const cmdRaw = r["command"];
@@ -29,6 +30,7 @@ function parseServerEntry(r: ReturnType<typeof RawProviderServerSchema.parse>): 
     ...(args?.length ? { args } : {}),
     ...(r["env"] ? { env: r["env"] as Record<string, string> } : {}),
     ...(r["cwd"] ? { cwd: r["cwd"] as string } : {}),
+    global: false,
   };
 }
 
