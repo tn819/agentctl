@@ -404,6 +404,9 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
 }
 
 @test "sync refreshes git-backed skills and reports upstream changes" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
   # Create an upstream bare repo
   local upstream
   upstream="$(mktemp -d)"
@@ -412,35 +415,32 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
   # Clone it as the skill
   local skill_src
   skill_src="$(mktemp -d)"
-  git clone "$upstream" "$skill_src/my-git-skill"
-  cd "$skill_src/my-git-skill"
-  git config user.email "test@test.com"
-  git config user.name "Test"
-  cat > SKILL.md << 'SKILLEOF'
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/my-git-skill"
+  git -C "$skill_src/my-git-skill" config user.email "test@test.com"
+  git -C "$skill_src/my-git-skill" config user.name "Test"
+  cat > "$skill_src/my-git-skill/SKILL.md" << 'SKILLEOF'
 ---
 name: my-git-skill
 global: true
 ---
 # My Skill
 SKILLEOF
-  git add SKILL.md
-  git commit -m "initial"
-  git push origin main
+  git -C "$skill_src/my-git-skill" add SKILL.md
+  git -C "$skill_src/my-git-skill" commit -m "initial"
+  git -C "$skill_src/my-git-skill" push origin main
 
   # Install the skill (bypass prompt with explicit --global)
   run agentctl add-skill "$skill_src/my-git-skill" --global
   [ "$status" -eq 0 ]
 
   # Add a new commit to upstream
-  cd "$skill_src/my-git-skill"
-  echo "updated" >> SKILL.md
-  git add SKILL.md
-  git commit -m "upstream update"
-  git push origin main
+  echo "updated" >> "$skill_src/my-git-skill/SKILL.md"
+  git -C "$skill_src/my-git-skill" add SKILL.md
+  git -C "$skill_src/my-git-skill" commit -m "upstream update"
+  git -C "$skill_src/my-git-skill" push origin main
 
   # sync with update accepted
-  cd "$SANDBOX_HOME"
-  run bash -c "echo 'y' | '$AGENTCTL' sync --skills-only"
+  run bash -c "unset GIT_DIR GIT_WORK_TREE; echo 'y' | '$AGENTCTL' sync --skills-only"
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-git-skill"* ]]
 
@@ -448,24 +448,29 @@ SKILLEOF
 }
 
 @test "sync --no-update-skills skips skill refresh" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
   local upstream skill_src
   upstream="$(mktemp -d)"
   git init --bare "$upstream" -b main
   skill_src="$(mktemp -d)"
-  git clone "$upstream" "$skill_src/no-update-skill"
-  cd "$skill_src/no-update-skill"
-  git config user.email "test@test.com"
-  git config user.name "Test"
-  printf -- "---\nname: no-update-skill\nglobal: true\n---\n" > SKILL.md
-  git add SKILL.md && git commit -m "initial" && git push origin main
-  cd "$SANDBOX_HOME"
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/no-update-skill"
+  git -C "$skill_src/no-update-skill" config user.email "test@test.com"
+  git -C "$skill_src/no-update-skill" config user.name "Test"
+  printf -- "---\nname: no-update-skill\nglobal: true\n---\n" > "$skill_src/no-update-skill/SKILL.md"
+  git -C "$skill_src/no-update-skill" add SKILL.md
+  git -C "$skill_src/no-update-skill" commit -m "initial"
+  git -C "$skill_src/no-update-skill" push origin main
+
   run agentctl add-skill "$skill_src/no-update-skill" --global
   [ "$status" -eq 0 ]
 
   # Push an upstream change
-  cd "$skill_src/no-update-skill"
-  echo "new" >> SKILL.md && git add SKILL.md && git commit -m "update" && git push origin main
-  cd "$SANDBOX_HOME"
+  echo "new" >> "$skill_src/no-update-skill/SKILL.md"
+  git -C "$skill_src/no-update-skill" add SKILL.md
+  git -C "$skill_src/no-update-skill" commit -m "update"
+  git -C "$skill_src/no-update-skill" push origin main
 
   run agentctl sync --skills-only --no-update-skills
   [ "$status" -eq 0 ]
@@ -476,24 +481,29 @@ SKILLEOF
 }
 
 @test "sync --dry-run reports skills behind upstream without updating" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
   local upstream skill_src
   upstream="$(mktemp -d)"
   git init --bare "$upstream" -b main
   skill_src="$(mktemp -d)"
-  git clone "$upstream" "$skill_src/dry-run-skill"
-  cd "$skill_src/dry-run-skill"
-  git config user.email "test@test.com"
-  git config user.name "Test"
-  printf -- "---\nname: dry-run-skill\nglobal: true\n---\n" > SKILL.md
-  git add SKILL.md && git commit -m "initial" && git push origin main
-  cd "$SANDBOX_HOME"
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/dry-run-skill"
+  git -C "$skill_src/dry-run-skill" config user.email "test@test.com"
+  git -C "$skill_src/dry-run-skill" config user.name "Test"
+  printf -- "---\nname: dry-run-skill\nglobal: true\n---\n" > "$skill_src/dry-run-skill/SKILL.md"
+  git -C "$skill_src/dry-run-skill" add SKILL.md
+  git -C "$skill_src/dry-run-skill" commit -m "initial"
+  git -C "$skill_src/dry-run-skill" push origin main
+
   run agentctl add-skill "$skill_src/dry-run-skill" --global
   [ "$status" -eq 0 ]
 
   # Push an upstream change
-  cd "$skill_src/dry-run-skill"
-  echo "new" >> SKILL.md && git add SKILL.md && git commit -m "update" && git push origin main
-  cd "$SANDBOX_HOME"
+  echo "new" >> "$skill_src/dry-run-skill/SKILL.md"
+  git -C "$skill_src/dry-run-skill" add SKILL.md
+  git -C "$skill_src/dry-run-skill" commit -m "update"
+  git -C "$skill_src/dry-run-skill" push origin main
 
   run agentctl sync --skills-only --dry-run
   [ "$status" -eq 0 ]
