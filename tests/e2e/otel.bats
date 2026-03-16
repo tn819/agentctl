@@ -6,7 +6,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -14,34 +14,34 @@ teardown() {
 }
 
 @test "config set otel.endpoint stores value" {
-  run agentctl config set otel.endpoint http://localhost:4317
+  run vakt config set otel.endpoint http://localhost:4317
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" "otel"
   assert_file_contains "$AGENTS_DIR/config.json" "localhost:4317"
 }
 
 @test "config get otel.endpoint retrieves stored value" {
-  agentctl config set otel.endpoint http://localhost:4317
-  run agentctl config get otel.endpoint
+  vakt config set otel.endpoint http://localhost:4317
+  run vakt config get otel.endpoint
   [ "$status" -eq 0 ]
   [[ "$output" == *"localhost:4317"* ]]
 }
 
 @test "config set otel.enabled stores boolean" {
-  run agentctl config set otel.enabled false
+  run vakt config set otel.enabled false
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" "otel"
 }
 
 @test "sync runs cleanly with otel endpoint configured" {
-  agentctl config set otel.endpoint http://localhost:4317
-  run agentctl sync --dry-run
+  vakt config set otel.endpoint http://localhost:4317
+  run vakt sync --dry-run
   [ "$status" -eq 0 ]
 }
 
 @test "config list shows otel section when configured" {
-  agentctl config set otel.endpoint http://collector:4317
-  run agentctl config list
+  vakt config set otel.endpoint http://collector:4317
+  run vakt config list
   [ "$status" -eq 0 ]
   [[ "$output" == *"otel"* ]]
 }

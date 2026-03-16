@@ -74,7 +74,7 @@ Recommend uppercase snake_case for all credential names:
 
 Group related credentials under a single service name in Keychain:
 ```bash
-security add-generic-password -s agentctl -a ANTHROPIC_API_KEY -w
+security add-generic-password -s vakt -a ANTHROPIC_API_KEY -w
 ```
 (The `-w` flag prompts for the value without echoing it)
 
@@ -97,7 +97,7 @@ HISTCONTROL=ignorespace
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Instead, load from Keychain at shell start (macOS):
-export ANTHROPIC_API_KEY=$(security find-generic-password -s agentctl -a ANTHROPIC_API_KEY -w 2>/dev/null)
+export ANTHROPIC_API_KEY=$(security find-generic-password -s vakt -a ANTHROPIC_API_KEY -w 2>/dev/null)
 ```
 
 ### Step 5: Gitignore and Dotfile Hygiene
@@ -148,17 +148,17 @@ configuration (names only, never values):
 
 ```bash
 # Add a credential (prompts for value securely)
-security add-generic-password -s agentctl -a MY_KEY -w
+security add-generic-password -s vakt -a MY_KEY -w
 
 # Verify it exists (shows metadata, not value)
-security find-generic-password -s agentctl -a MY_KEY
+security find-generic-password -s vakt -a MY_KEY
 
 # Update a credential
-security delete-generic-password -s agentctl -a MY_KEY
-security add-generic-password -s agentctl -a MY_KEY -w
+security delete-generic-password -s vakt -a MY_KEY
+security add-generic-password -s vakt -a MY_KEY -w
 
 # List all credentials under a service
-security find-generic-password -s agentctl 2>/dev/null | grep acct
+security find-generic-password -s vakt 2>/dev/null | grep acct
 ```
 
 ## Reference: pass Commands (Linux/macOS)
@@ -169,11 +169,11 @@ gpg --gen-key
 pass init YOUR_GPG_KEY_ID
 
 # Add a credential
-pass insert agentctl/MY_KEY
+pass insert vakt/MY_KEY
 
 # Verify it exists
-pass ls agentctl/
+pass ls vakt/
 
 # Update
-pass edit agentctl/MY_KEY
+pass edit vakt/MY_KEY
 ```

@@ -5,7 +5,7 @@ set -euo pipefail
 
 CREDENTIAL_NAMES="${CREDENTIAL_NAMES:-}"
 ROTATION_DAYS="${ROTATION_DAYS:-90}"
-SERVICE_NAME="${SERVICE_NAME:-agentctl}"
+SERVICE_NAME="${SERVICE_NAME:-vakt}"
 
 if [ -z "$CREDENTIAL_NAMES" ]; then
   echo "No credentials to check" >&2

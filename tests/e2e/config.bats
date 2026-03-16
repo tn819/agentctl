@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl config command
+# End-to-end tests for vakt config command
 
 load '../test_helper'
 
 setup() {
   setup_test_env
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -13,7 +13,7 @@ teardown() {
 }
 
 @test "config list shows current configuration" {
-  run agentctl config list
+  run vakt config list
   
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" "paths"
@@ -21,54 +21,54 @@ teardown() {
 }
 
 @test "config get retrieves a value" {
-  run agentctl config get paths.code
+  run vakt config get paths.code
   
   [ "$status" -eq 0 ]
   [ "$output" = "~/Code" ]
 }
 
 @test "config set updates a value" {
-  run agentctl config set paths.code "~/Projects"
+  run vakt config set paths.code "~/Projects"
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Set paths.code"* ]]
   
-  run agentctl config get paths.code
+  run vakt config get paths.code
   [ "$output" = "~/Projects" ]
 }
 
 @test "config set creates nested keys" {
-  run agentctl config set paths.custom "~/Custom"
+  run vakt config set paths.custom "~/Custom"
   
   [ "$status" -eq 0 ]
   
-  run agentctl config get paths.custom
+  run vakt config get paths.custom
   [ "$output" = "~/Custom" ]
 }
 
 @test "config get fails for non-existent key" {
-  run agentctl config get non.existent.key
+  run vakt config get non.existent.key
   
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "config set requires key and value" {
-  run agentctl config set
+  run vakt config set
   
   [ "$status" -eq 1 ]
   [[ "$output" == *"Usage"* ]]
 }
 
 @test "config without subcommand shows list" {
-  run agentctl config
+  run vakt config
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"paths"* ]]
 }
 
 @test "config preserves JSON formatting" {
-  agentctl config set paths.code "~/Projects"
+  vakt config set paths.code "~/Projects"
   
   run cat "$AGENTS_DIR/config.json"
   [[ "$output" == *'"paths"'* ]]
@@ -78,33 +78,33 @@ teardown() {
 
 @test "config can set providers array" {
   skip "Array handling needs custom implementation"
-  run agentctl config set providers '["opencode","claude"]'
+  run vakt config set providers '["opencode","claude"]'
   
   [ "$status" -eq 0 ]
 }
 
 @test "config can set secretsBackend" {
-  run agentctl config set secretsBackend "pass"
+  run vakt config set secretsBackend "pass"
   
   [ "$status" -eq 0 ]
   
-  run agentctl config get secretsBackend
+  run vakt config get secretsBackend
   [ "$output" = "pass" ]
 }
 
 @test "config handles paths with spaces" {
-  run agentctl config set paths.code "~/My Projects"
+  run vakt config set paths.code "~/My Projects"
   
   [ "$status" -eq 0 ]
   
-  run agentctl config get paths.code
+  run vakt config get paths.code
   [ "$output" = "~/My Projects" ]
 }
 
 @test "config fails before init" {
   rm -rf "$AGENTS_DIR"
   
-  run agentctl config list
+  run vakt config list
   
   [ "$status" -eq 1 ]
   [[ "$output" == *"Run 'vakt init' first"* ]]

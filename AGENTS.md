@@ -6,7 +6,7 @@
 
 ## Language: TypeScript + Bun
 
-**vakt is written in TypeScript, compiled and run with Bun. No Python. No shell scripts in `src/` except `src/agentctl.sh` (CLI shim) and `src/lib/secrets.sh` (legacy bash backend).**
+**vakt is written in TypeScript, compiled and run with Bun. No Python. No shell scripts in `src/` except `src/vakt.sh` (CLI shim) and `src/lib/secrets.sh` (legacy bash backend).**
 
 - All source code in `src/` is `.ts`
 - Bun is the runtime, test runner, and bundler
@@ -34,68 +34,15 @@ bun test tests/unit/ && bats tests/e2e/               # full suite
 
 ## Architecture
 
-```
-vakt/
-├── src/
-│   ├── index.ts                  # CLI entry (commander) — registers all commands
-│   ├── providers.json            # Provider registry (data-driven, validated by ProvidersSchema)
-│   ├── agentctl.sh               # Thin shim: exec bun run src/index.ts "$@"
-│   ├── commands/                 # One file per top-level command
-│   │   ├── add-server.ts
-│   │   ├── add-skill.ts
-│   │   ├── audit.ts
-│   │   ├── config.ts
-│   │   ├── daemon.ts
-│   │   ├── import.ts
-│   │   ├── init.ts
-│   │   ├── list.ts
-│   │   ├── lockdown.ts
-│   │   ├── proxy.ts
-│   │   ├── pull.ts
-│   │   ├── registry.ts
-│   │   ├── runtime.ts
-│   │   ├── search.ts
-│   │   ├── secrets.ts
-│   │   ├── sync.ts
-│   │   ├── upgrade.ts
-│   │   └── watch.ts
-│   ├── daemon/                   # Background process manager + IPC server
-│   │   ├── index.ts
-│   │   ├── ipc.ts
-│   │   ├── process-manager.test.ts
-│   │   ├── process-manager.ts
-│   │   ├── proxy.test.ts
-│   │   └── proxy.ts
-│   └── lib/                      # Shared libraries — pure functions, no CLI side effects
-│       ├── audit.test.ts
-│       ├── audit.ts
-│       ├── config.test.ts
-│       ├── config.ts
-│       ├── otel.test.ts
-│       ├── otel.ts
-│       ├── policy.test.ts
-│       ├── policy.ts
-│       ├── registry.test.ts
-│       ├── registry.ts
-│       ├── remote.ts
-│       ├── resolver.test.ts
-│       ├── resolver.ts
-│       ├── runtime.ts
-│       ├── schemas.ts
-│       ├── secrets.test.ts
-│       ├── secrets.ts
-│       └── verify.ts
-├── tests/
-│   ├── unit/                     # Bun unit tests (*.test.ts)
-│   │   ├── setup.ts              # Bun test preload — configured in bunfig.toml
-│   │   └── *.test.ts
-│   └── e2e/                      # bats end-to-end tests (invoke vakt CLI via agentctl.sh)
-│       └── *.bats
-├── skills/                       # Bundled skills (bash scripts + SKILL.md)
-├── scripts/                      # Dev scripts (refresh-agents-md.sh, etc.)
-├── docs/                         # TODO: GitHub Pages static site
-└── install.sh
-```
+- `src/index.ts` — CLI entry point (commander), registers all commands
+- `src/providers.json` — provider registry (data-driven, validated by ProvidersSchema)
+- `src/vakt.sh` — thin shim: `exec bun run src/index.ts "$@"`
+- `src/commands/` — one file per top-level command (add-server, add-skill, sync, list, …)
+- `src/daemon/` — background process manager and IPC server
+- `src/lib/` — shared libraries (pure functions, no CLI side effects)
+- `tests/e2e/` — bats end-to-end tests (invoke the vakt CLI directly)
+- `skills/` — bundled skills (bash scripts + SKILL.md)
+- `install.sh` — install script
 
 ## Schemas: Single Source of Truth
 
@@ -227,12 +174,12 @@ load '../test_helper'
 setup() {
   setup_test_env        # sandboxes $HOME to a temp dir
   mock_secrets_backend  # sets AGENTS_SECRETS_BACKEND=env, no keychain
-  agentctl init
+  vakt init
 }
 teardown() { teardown_test_env; }
 
 @test "command succeeds" {
-  run agentctl some-command
+  run vakt some-command
   [ "$status" -eq 0 ]
   [[ "$output" == *"expected text"* ]]
 }
@@ -324,7 +271,7 @@ Resolved at sync time by `resolveSecretRefs()` in `src/lib/secrets.ts`:
 3. Write unit tests in `tests/unit/<name>.test.ts` (if lib logic involved)
 4. Write e2e tests in `tests/e2e/<name>.bats`
 5. Update feature status table above
-6. Add to usage text in `src/agentctl.sh`
+6. Add to usage text in `src/vakt.sh`
 
 ## Adding a New Provider
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, test, expect, beforeEach } from "bun:test";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { resolveServer, resolveAll, formatForProvider, writeJsonConfig, readTomlConfig, toToml, syncSkills, writeTomlConfig, toTomlArrayOfTables } from "./resolver";
@@ -16,7 +16,7 @@ describe("resolveServer — missing secrets", () => {
   it("preserves raw secret ref in env when secret is not set", async () => {
     const { server: resolved, missing } = await resolveServer(
       "test",
-      { command: "npx", args: ["-y", "some-server"], env: { TOKEN: "secret:MISSING_TOKEN_XYZ" } },
+      { command: "npx", args: ["-y", "some-server"], env: { TOKEN: "secret:MISSING_TOKEN_XYZ" }, global: false },
       {},
     );
     expect((resolved as any).env["TOKEN"]).toBe("secret:MISSING_TOKEN_XYZ");
@@ -26,7 +26,7 @@ describe("resolveServer — missing secrets", () => {
   it("does not write empty string for a missing secret", async () => {
     const { server: resolved } = await resolveServer(
       "test",
-      { command: "npx", env: { KEY: "secret:ALSO_MISSING_XYZ" } },
+      { command: "npx", env: { KEY: "secret:ALSO_MISSING_XYZ" }, global: false },
       {},
     );
     expect((resolved as any).env["KEY"]).not.toBe("");
@@ -36,7 +36,7 @@ describe("resolveServer — missing secrets", () => {
     await secretsSet("RESOLVER_TEST_TOKEN", "real-value");
     const { server: resolved, missing } = await resolveServer(
       "test",
-      { command: "npx", env: { TOKEN: "secret:RESOLVER_TEST_TOKEN" } },
+      { command: "npx", env: { TOKEN: "secret:RESOLVER_TEST_TOKEN" }, global: false },
       {},
     );
     expect((resolved as any).env["TOKEN"]).toBe("real-value");
@@ -53,6 +53,7 @@ describe("resolveServer — missing secrets", () => {
           PRESENT: "secret:RESOLVER_PRESENT_KEY",
           ABSENT: "secret:RESOLVER_ABSENT_KEY",
         },
+        global: false,
       },
       {},
     );
@@ -249,7 +250,7 @@ describe("resolveAll", () => {
 describe("formatForProvider", () => {
   it("maps stdio server command and args", () => {
     const result = formatForProvider(
-      { myserver: { command: "npx", args: ["-y", "mcp-test"] } },
+      { myserver: { command: "npx", args: ["-y", "mcp-test"], global: false } },
       makeProvider(),
     );
     expect(result["myserver"]?.["command"]).toBe("npx");
@@ -266,7 +267,7 @@ describe("formatForProvider", () => {
 
   it("merges command+args into one array when commandProperty === argsProperty", () => {
     const result = formatForProvider(
-      { s: { command: "npx", args: ["-y", "pkg"] } },
+      { s: { command: "npx", args: ["-y", "pkg"], global: false } },
       makeProvider({ stdioPropertyMapping: { commandProperty: "cmd", argsProperty: "cmd" } }),
     );
     expect(result["s"]?.["cmd"]).toEqual(["npx", "-y", "pkg"]);
@@ -274,7 +275,7 @@ describe("formatForProvider", () => {
 
   it("includes typeProperty when configured", () => {
     const result = formatForProvider(
-      { s: { command: "npx" } },
+      { s: { command: "npx", global: false } },
       makeProvider({
         stdioPropertyMapping: {
           commandProperty: "command",
@@ -289,7 +290,7 @@ describe("formatForProvider", () => {
 
   it("includes env when envProperty is configured", () => {
     const result = formatForProvider(
-      { s: { command: "npx", env: { TOKEN: "abc" } } },
+      { s: { command: "npx", env: { TOKEN: "abc" }, global: false } },
       makeProvider(),
     );
     expect(result["s"]?.["env"]).toEqual({ TOKEN: "abc" });
@@ -338,6 +339,14 @@ describe("toToml", () => {
     const result = toToml({ db: { host: "localhost" } });
     expect(result).toContain("[db]");
     expect(result).toContain('host = "localhost"');
+  });
+});
+
+describe("resolveServer strips global field", () => {
+  test("global field is not included in resolved output", async () => {
+    const server = { command: "npx", args: ["-y", "test-mcp"], global: true };
+    const { server: resolved } = await resolveServer("test", server as any, {});
+    expect("global" in resolved).toBe(false);
   });
 });
 

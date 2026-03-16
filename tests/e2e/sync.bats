@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl sync command
+# End-to-end tests for vakt sync command
 
 load '../test_helper'
 
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -14,20 +14,20 @@ teardown() {
 }
 
 @test "sync runs without errors" {
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
 
 @test "sync --dry-run shows what would be synced" {
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"DRY RUN"* ]] || [[ "$output" == *"dry-run"* ]] || [[ "$output" == *"Would"* ]]
 }
 
 @test "sync --mcp-only skips skills" {
-  run agentctl sync --mcp-only --dry-run
+  run vakt sync --mcp-only --dry-run
   
   [ "$status" -eq 0 ]
 }
@@ -35,9 +35,9 @@ teardown() {
 @test "sync --skills-only skips MCP servers" {
   local skill_dir="$(mktemp -d)"
   create_test_skill "$skill_dir" "test-skill"
-  agentctl add-skill "$skill_dir"
+  vakt add-skill "$skill_dir"
   
-  run agentctl sync --skills-only --dry-run
+  run vakt sync --skills-only --dry-run
   
   [ "$status" -eq 0 ]
   
@@ -45,8 +45,8 @@ teardown() {
 }
 
 @test "sync resolves secret references" {
-  agentctl secrets set TEST_TOKEN "secret_value_123"
-  agentctl add-server test-server npx -y test-mcp
+  vakt secrets set TEST_TOKEN "secret_value_123"
+  vakt add-server test-server npx -y test-mcp
   # Manually add secret reference to config
   python3 << PYEOF
 import json
@@ -58,15 +58,15 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
     f.write('\n')
 PYEOF
   
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
 
 @test "sync expands path variables" {
-  agentctl config set paths.code "~/MyCode"
+  vakt config set paths.code "~/MyCode"
   
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
@@ -74,23 +74,23 @@ PYEOF
 @test "sync fails before init" {
   rm -rf "$AGENTS_DIR"
   
-  run agentctl sync
+  run vakt sync
   
   [ "$status" -eq 1 ]
 }
 
 @test "sync handles empty skills directory" {
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
 
 @test "sync handles multiple MCP servers" {
-  agentctl add-server server1 npx -y mcp1
-  agentctl add-server server2 npx -y mcp2
-  agentctl add-server server3 npx -y mcp3
+  vakt add-server server1 npx -y mcp1
+  vakt add-server server2 npx -y mcp2
+  vakt add-server server3 npx -y mcp3
   
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
@@ -99,17 +99,17 @@ PYEOF
   for i in 1 2 3; do
     local skill_dir="$(mktemp -d)"
     create_test_skill "$skill_dir" "skill-$i"
-    agentctl add-skill "$skill_dir"
+    vakt add-skill "$skill_dir"
     rm -rf "$skill_dir"
   done
   
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
 }
 
 @test "sync shows progress" {
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   [ "$status" -eq 0 ]
   # Should show some indication of what's happening
@@ -132,7 +132,7 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
     f.write('\n')
 PYEOF
   
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   
   # Should either fail or warn, not crash
   [ "$status" -eq 0 ] || [ "$status" -eq 1 ]
@@ -141,7 +141,7 @@ PYEOF
 @test "sync creates provider config directories" {
   skip "Requires write access to home directory"
   
-  run agentctl sync
+  run vakt sync
   
   [ "$status" -eq 0 ]
   # Would check for provider config files if not dry-run
@@ -155,7 +155,7 @@ PYEOF
   opencode_dir=$(mock_provider_config "opencode")
   echo '{"existing": "config"}' > "$opencode_dir/opencode.json"
   
-  run agentctl sync
+  run vakt sync
   
   [ "$status" -eq 0 ]
   # Would verify existing config is preserved/merged
@@ -172,9 +172,9 @@ PYEOF
   chmod +x "$bin_dir/cursor"
   export PATH="$bin_dir:$PATH"
 
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp
 
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
 
   [ "$status" -eq 0 ]
   # File-sync path emits "Would write <path>" for the cursor provider
@@ -192,9 +192,9 @@ PYEOF
   chmod +x "$bin_dir/claude"
   export PATH="$bin_dir:$PATH"
 
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp
 
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
 
   [ "$status" -eq 0 ]
   # CLI-sync dry-run path emits "Would run claude mcp add/remove"
@@ -214,9 +214,9 @@ PYEOF
   local cursor_config="$HOME/.cursor/mcp.json"
   mkdir -p "$(dirname "$cursor_config")"
 
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp --global
 
-  run agentctl sync
+  run vakt sync
 
   [ "$status" -eq 0 ]
   # The config file at the registry path must now exist
@@ -237,9 +237,9 @@ PYEOF
   local cursor_config="$HOME/.cursor/mcp.json"
   mkdir -p "$(dirname "$cursor_config")"
 
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp
 
-  run agentctl sync
+  run vakt sync
   [ "$status" -eq 0 ]
 
   [ -f "$cursor_config" ]
@@ -263,9 +263,9 @@ sys.exit(0 if data.endswith(b'\n') else 1)
   mkdir -p "$(dirname "$cursor_config")"
   echo '{"someOtherKey": {"nested": true}, "mcpServers": {}}' > "$cursor_config"
 
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp --global
 
-  run agentctl sync
+  run vakt sync
   [ "$status" -eq 0 ]
 
   python3 -c "
@@ -290,7 +290,7 @@ assert 'test-server' in cfg['mcpServers']
   mkdir -p "$(dirname "$cursor_config")"
 
   # Add server with a secret ref that has no corresponding secret set
-  agentctl add-server secret-server npx -y secret-mcp
+  vakt add-server secret-server npx -y secret-mcp --global
   python3 -c "
 import json
 with open('$AGENTS_DIR/mcp-config.json') as f:
@@ -301,7 +301,7 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
     f.write('\n')
 "
 
-  run agentctl sync
+  run vakt sync
   [ "$status" -eq 0 ]
 
   # The ref string should be in the output, not an empty string
@@ -315,7 +315,7 @@ assert val != '', 'secret ref was replaced with empty string'
 }
 
 @test "sync warns about missing secrets but does not fail" {
-  agentctl add-server secret-server npx -y secret-mcp
+  vakt add-server secret-server npx -y secret-mcp --global
   python3 -c "
 import json
 with open('$AGENTS_DIR/mcp-config.json') as f:
@@ -326,7 +326,206 @@ with open('$AGENTS_DIR/mcp-config.json', 'w') as f:
     f.write('\n')
 "
 
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"DEFINITELY_NOT_SET"* ]]
+}
+
+@test "sync prompts for unclassified MCP server and classifies on y" {
+  vakt add-server classified-srv npx -y test-mcp --global
+  # Add an unclassified server (no global field) by editing JSON directly
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run bash -c "echo 'y' | '$VAKT' sync --mcp-only"
+  [ "$status" -eq 0 ]
+
+  # The server should now be classified as global: true
+  python3 -c "
+import json, sys
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+assert cfg.get('unclassified-srv', {}).get('global') == True, 'expected global: true, got: ' + repr(cfg.get('unclassified-srv'))
+"
+}
+
+@test "sync prompts for unclassified skill and classifies on n" {
+  local skill_dir
+  skill_dir="$(mktemp -d)"
+  # Create a skill with no global field in SKILL.md
+  mkdir -p "$skill_dir/unclassified-skill"
+  cat > "$skill_dir/unclassified-skill/SKILL.md" << 'SKILLEOF'
+---
+name: unclassified-skill
+---
+
+# Unclassified Skill
+SKILLEOF
+  # Link it directly (bypass add-skill prompt)
+  mkdir -p "$AGENTS_DIR/skills"
+  ln -s "$skill_dir/unclassified-skill" "$AGENTS_DIR/skills/unclassified-skill"
+
+  run bash -c "echo 'n' | '$VAKT' sync --skills-only"
+  [ "$status" -eq 0 ]
+
+  grep -q "global: false" "$AGENTS_DIR/skills/unclassified-skill/SKILL.md"
+
+  rm -rf "$skill_dir"
+}
+
+@test "sync --dry-run does not prompt for unclassified resources" {
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run vakt sync --dry-run
+  [ "$status" -eq 0 ]
+  # dry-run should not prompt or classify; server remains unclassified
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+assert 'global' not in cfg.get('unclassified-srv', {}), 'server should remain unclassified in dry-run'
+"
+}
+
+@test "sync --all does not prompt for unclassified resources" {
+  python3 -c "
+import json
+with open('$AGENTS_DIR/mcp-config.json') as f: cfg = json.load(f)
+cfg['unclassified-srv'] = {'command': 'npx', 'args': ['-y', 'unclassified-mcp']}
+with open('$AGENTS_DIR/mcp-config.json', 'w') as f: json.dump(cfg, f, indent=2)
+"
+  run vakt sync --all
+  [ "$status" -eq 0 ]
+}
+
+@test "sync refreshes git-backed skills and reports upstream changes" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
+  # Create an upstream bare repo
+  local upstream
+  upstream="$(mktemp -d)"
+  git init --bare "$upstream" -b main
+
+  # Clone it as the skill
+  local skill_src
+  skill_src="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/my-git-skill"
+  git -C "$skill_src/my-git-skill" config user.email "test@test.com"
+  git -C "$skill_src/my-git-skill" config user.name "Test"
+  cat > "$skill_src/my-git-skill/SKILL.md" << 'SKILLEOF'
+---
+name: my-git-skill
+global: true
+---
+# My Skill
+SKILLEOF
+  git -C "$skill_src/my-git-skill" add SKILL.md
+  git -C "$skill_src/my-git-skill" commit -m "initial"
+  git -C "$skill_src/my-git-skill" push origin main
+
+  # Install the skill (bypass prompt with explicit --global)
+  run vakt add-skill "$skill_src/my-git-skill" --global
+  [ "$status" -eq 0 ]
+
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "upstream update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
+
+  # sync with update accepted
+  run bash -c "unset GIT_DIR GIT_WORK_TREE; echo 'y' | '$VAKT' sync --skills-only"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"my-git-skill"* ]]
+
+  rm -rf "$upstream" "$skill_src"
+}
+
+@test "sync --no-update-skills skips skill refresh" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
+  local upstream skill_src
+  upstream="$(mktemp -d)"
+  git init --bare "$upstream" -b main
+  skill_src="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/no-update-skill"
+  git -C "$skill_src/no-update-skill" config user.email "test@test.com"
+  git -C "$skill_src/no-update-skill" config user.name "Test"
+  printf -- "---\nname: no-update-skill\nglobal: true\n---\n" > "$skill_src/no-update-skill/SKILL.md"
+  git -C "$skill_src/no-update-skill" add SKILL.md
+  git -C "$skill_src/no-update-skill" commit -m "initial"
+  git -C "$skill_src/no-update-skill" push origin main
+
+  run vakt add-skill "$skill_src/no-update-skill" --global
+  [ "$status" -eq 0 ]
+
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
+
+  run vakt sync --skills-only --no-update-skills
+  [ "$status" -eq 0 ]
+  # Output should NOT mention "new commits upstream" in update context
+  [[ "$output" != *"new commits upstream"* ]]
+
+  rm -rf "$upstream" "$skill_src"
+}
+
+@test "sync --dry-run reports skills behind upstream without updating" {
+  # Unset any inherited GIT_DIR so git commands work on the correct repos
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+
+  local upstream skill_src
+  upstream="$(mktemp -d)"
+  git init --bare "$upstream" -b main
+  skill_src="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$skill_src/dry-run-skill"
+  git -C "$skill_src/dry-run-skill" config user.email "test@test.com"
+  git -C "$skill_src/dry-run-skill" config user.name "Test"
+  printf -- "---\nname: dry-run-skill\nglobal: true\n---\n" > "$skill_src/dry-run-skill/SKILL.md"
+  git -C "$skill_src/dry-run-skill" add SKILL.md
+  git -C "$skill_src/dry-run-skill" commit -m "initial"
+  git -C "$skill_src/dry-run-skill" push origin main
+
+  run vakt add-skill "$skill_src/dry-run-skill" --global
+  [ "$status" -eq 0 ]
+
+  # Push an upstream change from a second clone so the skill's local clone is behind
+  local upstream_clone
+  upstream_clone="$(mktemp -d)"
+  git -c init.defaultBranch=main clone "$upstream" "$upstream_clone"
+  git -C "$upstream_clone" config user.email "test@test.com"
+  git -C "$upstream_clone" config user.name "Test"
+  echo "upstream change" >> "$upstream_clone/SKILL.md"
+  git -C "$upstream_clone" add SKILL.md
+  git -C "$upstream_clone" commit -m "update"
+  git -C "$upstream_clone" push origin main
+  rm -rf "$upstream_clone"
+
+  run vakt sync --skills-only --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"dry-run"* ]] || [[ "$output" == *"behind"* ]]
+
+  rm -rf "$upstream" "$skill_src"
 }

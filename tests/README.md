@@ -1,6 +1,6 @@
-# agentctl Test Suite
+# vakt Test Suite
 
-End-to-end tests for agentctl CLI using `bats` (Bash Automated Testing System).
+End-to-end tests for vakt CLI using `bats` (Bash Automated Testing System).
 
 ## Requirements
 
@@ -116,7 +116,7 @@ load '../test_helper'
 
 setup() {
   setup_test_env
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -124,7 +124,7 @@ teardown() {
 }
 
 @test "my test description" {
-  run agentctl some-command
+  run vakt some-command
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"expected output"* ]]
@@ -216,7 +216,7 @@ ls -la "$AGENTS_DIR" >&3
 ### Run with bash debug
 
 ```bash
-bash -x src/agentctl.sh init
+bash -x src/vakt.sh init
 ```
 
 ## Test Coverage
