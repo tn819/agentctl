@@ -26,7 +26,7 @@ export interface PermissionsAdapter {
 
 /** Serialise a ToolPermission back to the Claude Code string format. */
 export function serializeToolPermission(p: ToolPermission): string {
-  return p.specifier !== undefined ? `${p.tool}(${p.specifier})` : p.tool;
+  return p.specifier === undefined ? p.tool : `${p.tool}(${p.specifier})`;
 }
 
 // ── Warning helpers ───────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ function buildPerms(
   mergedAllow: string[],
   mergedDeny: string[],
 ): Record<string, unknown> {
-  const perms: Record<string, unknown> = { ...(existing ?? {}) };
+  const perms: Record<string, unknown> = { ...existing };
   if (mergedAllow.length > 0) perms["allow"] = mergedAllow; else delete perms["allow"];
   if (mergedDeny.length  > 0) perms["deny"]  = mergedDeny;  else delete perms["deny"];
   return perms;
@@ -176,8 +176,8 @@ export function makePermissionsAdapter(
   format: "claude-settings",
   path: string,
 ): PermissionsAdapter {
-  switch (format) {
-    case "claude-settings":
-      return new ClaudeSettingsAdapter(path);
-  }
+  if (format === "claude-settings") return new ClaudeSettingsAdapter(path);
+  // exhaustive check — format is a union; TypeScript cannot narrow a single-variant union without this
+  const _: never = format;
+  throw new Error(`unsupported format: ${_}`);
 }

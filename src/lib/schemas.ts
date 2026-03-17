@@ -282,7 +282,7 @@ export const ToolPermissionSchema = z
     const m = TOOL_PERMISSION_RE.exec(s)!;
     const tool = m[1]!;
     const specifier = m[2];
-    return specifier !== undefined ? { tool, specifier } : { tool };
+    return specifier === undefined ? { tool } : { tool, specifier };
   });
 
 export type ToolPermission = { tool: string; specifier?: string };

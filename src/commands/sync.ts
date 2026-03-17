@@ -370,7 +370,9 @@ function printIssueGroup(heading: string, issues: GateIssue[]): void {
 }
 
 function pluralCount(n: number, word: string): string {
-  return n > 0 ? `${n} ${word}${n > 1 ? "s" : ""}` : "";
+  if (n <= 0) return "";
+  const suffix = n > 1 ? "s" : "";
+  return `${n} ${word}${suffix}`;
 }
 
 function printGateIssues(gate: ReturnType<typeof collectGateIssues>): void {
