@@ -295,6 +295,11 @@ Automated via `semantic-release` on merge to `main`:
 
 Binary: `bun build src/index.ts --compile --outfile dist/vakt`
 
+## SonarCloud
+
+The SonarCloud project key is `tn819_agentctl` (legacy name — the repo was previously called `agentctl`).
+Badge URLs and `sonar-project.properties` both use this key. Do not rename it; doing so breaks the badge links in README.md and resets quality history.
+
 ## Debugging
 
 ```bash

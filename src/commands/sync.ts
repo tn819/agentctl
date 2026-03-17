@@ -70,41 +70,55 @@ function isInstalled(cmd: string): boolean {
   return resolveCmd(cmd) !== null;
 }
 
+function syncSingleServer(
+  claudeBin: string,
+  name: string,
+  server: Record<string, unknown>,
+  existing: string[],
+): void {
+  if (existing.includes(name)) {
+    spawnSync(claudeBin, ["mcp", "remove", name], { stdio: "ignore" });
+  }
+  const isHttp = "url" in server;
+  if (isHttp) {
+    spawnSync(claudeBin, ["mcp", "add", "--transport", "http", name, server["url"] as string], { stdio: "ignore" });
+  } else {
+    const cmd = server["command"] as string;
+    const args = server["args"] as string[] ?? [];
+    const envPairs = server["env"]
+      ? Object.entries(server["env"] as Record<string, string>).flatMap(([k, v]) => ["-e", `${k}=${v}`])
+      : [];
+    spawnSync(claudeBin, ["mcp", "add", ...envPairs, name, cmd, ...args], { stdio: "ignore" });
+  }
+}
+
+async function syncViaCliProvider(
+  servers: Record<string, Record<string, unknown>>,
+  dryRun: boolean,
+): Promise<void> {
+  if (dryRun) { info(`[dry-run] Would run claude mcp add/remove`); return; }
+  const claudeBin = resolveCmd("claude");
+  if (!claudeBin) { warn("claude not found, skipping CLI sync"); return; }
+
+  let existing: string[] = [];
+  const listResult = spawnSync(claudeBin, ["mcp", "list"], { encoding: "utf-8" });
+  if (listResult.status === 0) {
+    existing = (listResult.stdout ?? "").split("\n").map(l => l.split(":")[0]?.trim() ?? "").filter(Boolean);
+  }
+
+  for (const [name, server] of Object.entries(servers)) {
+    syncSingleServer(claudeBin, name, server, existing);
+    ok(name);
+  }
+}
+
 async function syncProviderMcp(
   provider: Provider,
   servers: Record<string, Record<string, unknown>>,
   dryRun: boolean,
 ): Promise<void> {
   if (provider.syncMethod === "cli") {
-    // Claude Code: use `claude mcp add` CLI
-    if (dryRun) { info(`[dry-run] Would run claude mcp add/remove`); return; }
-    // Resolve absolute path to avoid PATH-based command injection
-    const claudeBin = resolveCmd("claude");
-    if (!claudeBin) { warn("claude not found, skipping CLI sync"); return; }
-
-    let existing: string[] = [];
-    const listResult = spawnSync(claudeBin, ["mcp", "list"], { encoding: "utf-8" });
-    if (listResult.status === 0) {
-      existing = (listResult.stdout ?? "").split("\n").map(l => l.split(":")[0]?.trim() ?? "").filter(Boolean);
-    }
-
-    for (const [name, server] of Object.entries(servers)) {
-      if (existing.includes(name)) {
-        spawnSync(claudeBin, ["mcp", "remove", name], { stdio: "ignore" });
-      }
-      const isHttp = "url" in server;
-      if (isHttp) {
-        spawnSync(claudeBin, ["mcp", "add", "--transport", "http", name, server["url"] as string], { stdio: "ignore" });
-      } else {
-        const cmd = server["command"] as string;
-        const args = server["args"] as string[] ?? [];
-        const envPairs = server["env"]
-          ? Object.entries(server["env"] as Record<string, string>).flatMap(([k, v]) => ["-e", `${k}=${v}`])
-          : [];
-        spawnSync(claudeBin, ["mcp", "add", ...envPairs, name, cmd, ...args], { stdio: "ignore" });
-      }
-      ok(name);
-    }
+    await syncViaCliProvider(servers, dryRun);
     return;
   }
 

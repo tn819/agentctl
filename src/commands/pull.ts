@@ -17,6 +17,48 @@ const ok     = (s: string) => console.log(`  ${green("✓")}  ${s}`);
 const warn   = (s: string) => console.log(`  ${yellow("⚠")}  ${s}`);
 const info   = (s: string) => console.log(`  ${cyan("→")}  ${s}`);
 
+type RemoteCfg = NonNullable<ReturnType<typeof loadAgentConfig>["remote"]>;
+type PullWhat = "policy" | "mcp" | "skills" | "all";
+type PullResult = { fetched: string[]; errors: string[] };
+
+function resolvePullWhat(opts: { policyOnly?: boolean; mcpOnly?: boolean; skillsOnly?: boolean }): PullWhat {
+  if (opts.policyOnly) return "policy";
+  if (opts.mcpOnly) return "mcp";
+  if (opts.skillsOnly) return "skills";
+  return "all";
+}
+
+async function fetchPolicyArtifact(remoteCfg: RemoteCfg, agentsDir: string, dryRun: boolean, result: PullResult): Promise<void> {
+  const out = await fetchRemotePolicy(remoteCfg, agentsDir, remoteCfg.token);
+  if (out) {
+    result.fetched.push("policy");
+    if (dryRun) info("[dry-run] would fetch policy.json");
+    else ok("policy.json fetched → policy.remote.json");
+  } else {
+    result.errors.push("policy.json");
+    warn("could not fetch policy.json");
+  }
+}
+
+async function fetchMcpArtifact(remoteCfg: RemoteCfg, agentsDir: string, dryRun: boolean, result: PullResult): Promise<void> {
+  if (dryRun) { info("[dry-run] would fetch mcp-config.json"); return; }
+  const out = await fetchRemoteMcpConfig(remoteCfg, agentsDir, remoteCfg.token);
+  if (!out) { result.errors.push("mcp-config.json"); warn("could not fetch mcp-config.json"); return; }
+  result.fetched.push("mcp-config");
+  ok("mcp-config.json fetched → mcp-config.remote.json");
+  const changes = await mergeRemoteMcp(agentsDir, false);
+  for (const [name, status] of Object.entries(changes)) {
+    if (status !== "unchanged") info(`server ${status}: ${name}`);
+  }
+}
+
+async function fetchSkillsArtifact(remoteCfg: RemoteCfg, agentsDir: string, dryRun: boolean, result: PullResult): Promise<void> {
+  if (dryRun) { info("[dry-run] would fetch skills/index.json"); return; }
+  const out = await fetchRemoteSkillsManifest(remoteCfg, agentsDir, remoteCfg.token);
+  if (out) { result.fetched.push("skills/index"); ok("skills/index.json fetched → skills/remote-index.json"); }
+  // Skills manifest is optional — not an error if missing
+}
+
 export function registerPull(program: Command): void {
   program
     .command("pull")
@@ -53,55 +95,15 @@ export function registerPull(program: Command): void {
       console.log("");
 
       const remoteCfg = cfg.remote;
-      const token = remoteCfg.token;
+      const what = resolvePullWhat(opts);
+      const result: PullResult = { fetched: [], errors: [] };
 
-      const what = opts.policyOnly ? "policy" : opts.mcpOnly ? "mcp" : opts.skillsOnly ? "skills" : "all";
-
-      const fetched: string[] = [];
-      const errors: string[] = [];
-
-      if (what === "all" || what === "policy") {
-        const out = await fetchRemotePolicy(remoteCfg, agentsDir, token);
-        if (out) {
-          fetched.push("policy");
-          if (!opts.dryRun) ok("policy.json fetched → policy.remote.json");
-          else info("[dry-run] would fetch policy.json");
-        } else {
-          errors.push("policy.json");
-          warn("could not fetch policy.json");
-        }
-      }
-
-      if (what === "all" || what === "mcp") {
-        const out = opts.dryRun ? null : await fetchRemoteMcpConfig(remoteCfg, agentsDir, token);
-        if (opts.dryRun) {
-          info("[dry-run] would fetch mcp-config.json");
-        } else if (out) {
-          fetched.push("mcp-config");
-          ok("mcp-config.json fetched → mcp-config.remote.json");
-          const changes = await mergeRemoteMcp(agentsDir, false);
-          for (const [name, status] of Object.entries(changes)) {
-            if (status !== "unchanged") info(`server ${status}: ${name}`);
-          }
-        } else {
-          errors.push("mcp-config.json");
-          warn("could not fetch mcp-config.json");
-        }
-      }
-
-      if (what === "all" || what === "skills") {
-        const out = opts.dryRun ? null : await fetchRemoteSkillsManifest(remoteCfg, agentsDir, token);
-        if (opts.dryRun) {
-          info("[dry-run] would fetch skills/index.json");
-        } else if (out) {
-          fetched.push("skills/index");
-          ok("skills/index.json fetched → skills/remote-index.json");
-        }
-        // Skills manifest is optional — not an error if missing
-      }
+      if (what === "all" || what === "policy") await fetchPolicyArtifact(remoteCfg, agentsDir, opts.dryRun ?? false, result);
+      if (what === "all" || what === "mcp") await fetchMcpArtifact(remoteCfg, agentsDir, opts.dryRun ?? false, result);
+      if (what === "all" || what === "skills") await fetchSkillsArtifact(remoteCfg, agentsDir, opts.dryRun ?? false, result);
 
       console.log("");
-      if (errors.length === 0 || fetched.length > 0) {
+      if (result.errors.length === 0 || result.fetched.length > 0) {
         ok("Pull complete");
         if (!opts.dryRun) info("Run 'vakt sync' to apply updated config to all providers");
       } else {

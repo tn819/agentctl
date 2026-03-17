@@ -6,7 +6,7 @@ import { AuditStore } from "../lib/audit";
 import { readSkillMeta, scanSkillHazards } from "../lib/skills";
 
 function parseDuration(s: string): number {
-  const m = s.match(/^(\d+)(h|d|w)$/);
+  const m = /^(\d+)(h|d|w)$/.exec(s);
   if (!m) return 24 * 3_600_000;
   const n = Number(m[1]);
   const units: Record<string, number> = { h: 3_600_000, d: 86_400_000, w: 604_800_000 };

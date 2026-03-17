@@ -59,6 +59,46 @@ function revertFile(path: string, snapshotDir: string): boolean {
   return false;
 }
 
+function handleDriftEvent(
+  changedPath: string,
+  watchPaths: string[],
+  auditLog: string,
+  snapshotDir: string,
+  opts: { revert?: boolean },
+): void {
+  if (!watchPaths.some((p) => changedPath.includes(p))) return;
+  appendFileSync(auditLog, `${new Date().toISOString()} DRIFT_DETECTED path=${changedPath}\n`);
+  err(`drift detected: ${changedPath}`);
+  if (opts.revert) {
+    const reverted = revertFile(changedPath, snapshotDir);
+    if (reverted) ok(`reverted: ${changedPath}`);
+    else warn(`no snapshot available for: ${changedPath}`);
+  }
+}
+
+async function runWatchLoop(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  watchPaths: string[],
+  auditLog: string,
+  snapshotDir: string,
+  opts: { revert?: boolean },
+): Promise<void> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value);
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const changedPath = line.trim();
+      if (!changedPath) continue;
+      handleDriftEvent(changedPath, watchPaths, auditLog, snapshotDir, opts);
+    }
+  }
+}
+
 export function registerWatch(program: Command): void {
   program
     .command("watch")
@@ -107,41 +147,10 @@ export function registerWatch(program: Command): void {
           ? ["--one-event", "--event=Updated", "--event=Created", "--event=Removed", ...watchPaths]
           : ["-m", "-r", ...watchPaths, "--event", "MODIFY,CREATE,DELETE"];
 
-      const proc = Bun.spawn([watcher, ...watchArgs], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
+      const proc = Bun.spawn([watcher, ...watchArgs], { stdout: "pipe", stderr: "pipe" });
       const auditLog = join(agentsDir, "audit.log");
 
-      const reader = proc.stdout.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value);
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const changedPath = line.trim();
-          if (!changedPath) continue;
-          if (!watchPaths.some((p) => changedPath.includes(p))) continue;
-
-          const timestamp = new Date().toISOString();
-          const logLine = `${timestamp} DRIFT_DETECTED path=${changedPath}\n`;
-          appendFileSync(auditLog, logLine);
-
-          err(`drift detected: ${changedPath}`);
-
-          if (opts.revert) {
-            const reverted = revertFile(changedPath, snapshotDir);
-            if (reverted) ok(`reverted: ${changedPath}`);
-            else warn(`no snapshot available for: ${changedPath}`);
-          }
-        }
-      }
+      await runWatchLoop(proc.stdout.getReader(), watchPaths, auditLog, snapshotDir, opts);
 
       // Suppress unused variable warning
       void ok;
