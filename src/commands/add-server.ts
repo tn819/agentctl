@@ -103,11 +103,7 @@ export function registerAddServer(program: Command): void {
       const config = loadMcpConfig();
       const makeGlobal = opts.global ?? false;
 
-      if (opts.http !== undefined) {
-        config[name] = { transport: "http", url: opts.http, global: makeGlobal };
-        await Bun.write(mcpPath, JSON.stringify(config, null, 2));
-        console.log(`Added HTTP server: ${name}`);
-      } else {
+      if (opts.http === undefined) {
         const argv = process.argv;
         const addServerIdx = argv.indexOf("add-server");
         const rawAfterName = addServerIdx >= 0 ? argv.slice(addServerIdx + 2) : [];
@@ -126,6 +122,10 @@ export function registerAddServer(program: Command): void {
           await Bun.write(mcpPath, JSON.stringify(config, null, 2));
           console.log(`Added server: ${name}`);
         }
+      } else {
+        config[name] = { transport: "http", url: opts.http, global: makeGlobal };
+        await Bun.write(mcpPath, JSON.stringify(config, null, 2));
+        console.log(`Added HTTP server: ${name}`);
       }
       console.log("Run 'vakt sync' to push to providers.");
     });

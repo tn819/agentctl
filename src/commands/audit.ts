@@ -13,6 +13,59 @@ function parseDuration(s: string): number {
   return n * (units[m[2]!] ?? 3_600_000);
 }
 
+type SkillRow = { name: string; allowedTools: string[] | null; scoped: boolean; hazards: ReturnType<typeof scanSkillHazards> };
+
+function buildSkillRows(skillsDir: string, skills: string[]): SkillRow[] {
+  return skills
+    .filter(skill => skill === basename(skill) && statSync(join(skillsDir, skill)).isDirectory())
+    .map(skill => {
+      const skillDir = join(skillsDir, skill);
+      const meta = readSkillMeta(skillDir);
+      const hazards = scanSkillHazards(skillDir);
+      return { name: skill, allowedTools: meta.allowedTools ?? null, scoped: meta.allowedTools !== undefined, hazards };
+    });
+}
+
+const ansi = {
+  bold:   (s: string) => `\x1b[1m${s}\x1b[0m`,
+  dim:    (s: string) => `\x1b[2m${s}\x1b[0m`,
+  green:  (s: string) => `\x1b[32m${s}\x1b[0m`,
+  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
+  red:    (s: string) => `\x1b[31m${s}\x1b[0m`,
+};
+
+const COL = { skill: 26, tools: 26, scoped: 10, hazards: 10 };
+
+function printSkillRow(r: SkillRow): void {
+  const name     = r.name.length > COL.skill ? r.name.slice(0, COL.skill - 1) + "…" : r.name;
+  const nameCol  = ansi.bold(name).padEnd(COL.skill + 8);
+  const toolsStr = r.allowedTools ? r.allowedTools.join(", ") : "—";
+  const toolsCol = ansi.dim(toolsStr).padEnd(COL.tools + 4);
+  const scopedCol = (r.scoped ? ansi.green("✓") : ansi.yellow("⚠ no")).padEnd(COL.scoped + 9);
+  const n        = r.hazards.length;
+  const hazCol   = n === 0 ? ansi.green("—") : ansi.red(`${n} finding${n > 1 ? "s" : ""}`);
+  console.log(`  ${nameCol} ${toolsCol} ${scopedCol} ${hazCol}`);
+  for (const h of r.hazards) {
+    console.log(`    ${ansi.dim(`${h.file}:${h.line}`)}  ${ansi.yellow(h.pattern)}`); // NOSONAR — intentional CLI output of local scan results
+  }
+}
+
+function printSkillsSummary(unscoped: number, withHazards: number): void {
+  if (unscoped > 0)    console.log(`  ${ansi.yellow(`⚠ ${unscoped} unscoped skill${unscoped > 1 ? "s" : ""} — add allowed-tools to SKILL.md frontmatter`)}`); // NOSONAR
+  if (withHazards > 0) console.log(`  ${ansi.red(`✗ ${withHazards} skill${withHazards > 1 ? "s" : ""} with static hazard findings — review before syncing`)}`); // NOSONAR
+  if (unscoped === 0 && withHazards === 0) console.log(`  ${ansi.green("✓ All skills scoped and no static hazards found")}`);
+}
+
+function printSkillsTable(rows: SkillRow[]): void {
+  console.log(`\n${ansi.bold("── Skills Security Audit ────────────────────────────────────────────────────")}`);
+  console.log(`  ${"SKILL".padEnd(COL.skill)} ${"TOOLS".padEnd(COL.tools)} ${"SCOPED".padEnd(COL.scoped)} HAZARDS`);
+  console.log(`  ${"─".repeat(COL.skill)} ${"─".repeat(COL.tools)} ${"─".repeat(COL.scoped)} ${"─".repeat(COL.hazards)}`);
+  for (const r of rows) printSkillRow(r);
+  console.log();
+  printSkillsSummary(rows.filter(r => !r.scoped).length, rows.filter(r => r.hazards.length > 0).length);
+  console.log();
+}
+
 export function registerAudit(program: Command): void {
   const audit = program.command("audit").description("Query the local audit log");
 
@@ -59,72 +112,14 @@ export function registerAudit(program: Command): void {
     .option("--json", "Emit JSON array instead of table")
     .action((opts: { json?: boolean }) => {
       const skillsDir = join(AGENTS_DIR, "skills");
-      if (!existsSync(skillsDir)) {
-        console.log("No skills directory found.");
-        return;
-      }
+      if (!existsSync(skillsDir)) { console.log("No skills directory found."); return; }
 
       const skills = readdirSync(skillsDir);
-      if (skills.length === 0) {
-        console.log("No skills installed.");
-        return;
-      }
+      if (skills.length === 0) { console.log("No skills installed."); return; }
 
-      const rows = skills
-        .filter(skill => skill === basename(skill) && statSync(join(skillsDir, skill)).isDirectory())
-        .map(skill => {
-          const skillDir = join(skillsDir, skill);
-          const meta = readSkillMeta(skillDir);
-          const hazards = scanSkillHazards(skillDir);
-          return {
-            name:         skill,
-            allowedTools: meta.allowedTools ?? null,
-            scoped:       meta.allowedTools !== undefined,
-            hazards,
-          };
-        });
-
-      if (opts.json) {
-        console.log(JSON.stringify(rows, null, 2));
-        return;
-      }
-
-      const bold   = (s: string) => `\x1b[1m${s}\x1b[0m`;
-      const dim    = (s: string) => `\x1b[2m${s}\x1b[0m`;
-      const green  = (s: string) => `\x1b[32m${s}\x1b[0m`;
-      const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
-      const red    = (s: string) => `\x1b[31m${s}\x1b[0m`;
-
-      const W = { skill: 26, tools: 26, scoped: 10, hazards: 10 };
-      console.log(`\n${bold("── Skills Security Audit ────────────────────────────────────────────────────")}`);
-      console.log(
-        `  ${"SKILL".padEnd(W.skill)} ${"TOOLS".padEnd(W.tools)} ${"SCOPED".padEnd(W.scoped)} HAZARDS`
-      );
-      console.log(`  ${"─".repeat(W.skill)} ${"─".repeat(W.tools)} ${"─".repeat(W.scoped)} ${"─".repeat(W.hazards)}`);
-
-      for (const r of rows) {
-        const nameCol   = bold(r.name.length > W.skill ? r.name.slice(0, W.skill - 1) + "…" : r.name).padEnd(W.skill + 8 /* ANSI */);
-        const toolsCol  = (r.allowedTools ? dim(r.allowedTools.join(", ")) : dim("—")).padEnd(W.tools + 4);
-        const scopedCol = (r.scoped ? green("✓") : yellow("⚠ no")).padEnd(W.scoped + 9);
-        const hazCol    = r.hazards.length === 0
-          ? green("—")
-          : red(`${r.hazards.length} finding${r.hazards.length > 1 ? "s" : ""}`);
-        console.log(`  ${nameCol} ${toolsCol} ${scopedCol} ${hazCol}`);
-
-        if (r.hazards.length > 0) {
-          for (const h of r.hazards) {
-            console.log(`    ${dim(`${h.file}:${h.line}`)}  ${yellow(h.pattern)}`); // NOSONAR — intentional CLI output of local scan results
-          }
-        }
-      }
-
-      const unscoped = rows.filter(r => !r.scoped).length;
-      const withHazards = rows.filter(r => r.hazards.length > 0).length;
-      console.log();
-      if (unscoped > 0) console.log(`  ${yellow(`⚠ ${unscoped} unscoped skill${unscoped > 1 ? "s" : ""} — add allowed-tools to SKILL.md frontmatter`)}`); // NOSONAR
-      if (withHazards > 0) console.log(`  ${red(`✗ ${withHazards} skill${withHazards > 1 ? "s" : ""} with static hazard findings — review before syncing`)}`); // NOSONAR
-      if (unscoped === 0 && withHazards === 0) console.log(`  ${green("✓ All skills scoped and no static hazards found")}`);
-      console.log();
+      const rows = buildSkillRows(skillsDir, skills);
+      if (opts.json) { console.log(JSON.stringify(rows, null, 2)); return; }
+      printSkillsTable(rows);
     });
 
   audit

@@ -49,6 +49,18 @@ export default [
       // ── SonarCloud S1488 — Immediately returned variable ─────────────────
       "sonarjs/prefer-immediate-return": "error",
 
+      // ── SonarCloud S1301: Prefer if over single-case switch ──────────────
+      "sonarjs/no-small-switch": "error",
+
+      // ── SonarCloud S3358: No nested ternary expressions ──────────────────
+      "no-nested-ternary": "error",
+
+      // ── SonarCloud S7735: No negated conditions ───────────────────────────
+      "no-negated-condition": "error",
+
+      // ── SonarCloud S7744: No useless fallback in spread (e.g. ?? {}) ─────
+      "unicorn/no-useless-fallback-in-spread": "error",
+
       // ── TypeScript hygiene ────────────────────────────────────────────────
       // warn (not error) so pre-existing `any` in daemon/proxy doesn't block commits
       "@typescript-eslint/no-explicit-any": "warn",

@@ -189,10 +189,25 @@ export const ProviderSchema = z
       path: z.union([z.string(), PlatformStringMapSchema]),
       method: z.enum(["symlink", "native"]),
     }),
+    /**
+     * Path to the provider's native permissions config file, keyed by platform.
+     * When present and policy.tools is non-empty, vakt sync writes a managed
+     * block to this file. Absent = no permissions-file target for this provider.
+     */
+    permissionsPath: PlatformStringMapSchema.optional(),
+    /**
+     * Format of the permissions config file.
+     * "claude-settings" — ~/.claude/settings.json permissions.allow/deny arrays.
+     */
+    permissionsFormat: z.enum(["claude-settings"]).optional(),
   })
   .refine(
     (p) => p.syncMethod !== "cli" || p.configFormat === "json",
     { message: "syncMethod 'cli' is only valid with configFormat 'json'" }
+  )
+  .refine(
+    (p) => (p.permissionsPath === undefined) === (p.permissionsFormat === undefined),
+    { message: "permissionsPath and permissionsFormat must both be set or both be absent" }
   );
 
 export const ProvidersSchema = z.record(ProviderSchema);
@@ -209,6 +224,68 @@ export type Providers = z.infer<typeof ProvidersSchema>;
 
 export type PolicyResult = "allow" | "deny" | "ask";
 export type RegistryPolicy = "allow-unverified" | "warn-unverified" | "registry-only";
+
+/**
+ * Canonical list of Claude Code built-in tool names.
+ * Source: https://code.claude.com/docs/en/permissions#permission-rule-syntax
+ * Verified: 2026-03-17
+ *
+ * Run `bun run check:tool-enum` to detect drift against the live docs.
+ */
+export const KNOWN_TOOLS = [
+  "Agent",
+  "Bash",
+  "Edit",
+  "Glob",
+  "Grep",
+  "LS",
+  "NotebookEdit",
+  "NotebookRead",
+  "Read",
+  "TodoRead",
+  "TodoWrite",
+  "WebFetch",
+  "WebSearch",
+  "Write",
+] as const;
+
+export type KnownTool = typeof KNOWN_TOOLS[number];
+
+/**
+ * A permission rule entry in the format `ToolName` or `ToolName(specifier)`.
+ *
+ * Known tools are validated against KNOWN_TOOLS; unknown tools (new Claude Code
+ * releases) pass through as `{ tool: string; specifier?: string }` with a
+ * warning emitted at sync time rather than a hard parse error.
+ *
+ * Specifier format is tool-specific per the Claude Code docs:
+ *   Bash       — command glob, e.g. `git *`
+ *   Read/Edit/Write — gitignore-style path, e.g. `~/.env`, `/src/**`
+ *   WebFetch   — domain prefix, e.g. `domain:github.com`
+ *   Agent      — subagent name, e.g. `Explore`
+ *
+ * MCP tool rules (`mcp__*`) belong in `policy.servers`, not `policy.tools`.
+ */
+const TOOL_PERMISSION_RE = /^([A-Z][A-Za-z0-9]*)(?:\((.+)\))?$/;
+
+export const ToolPermissionSchema = z
+  .string()
+  .refine(
+    (s) => TOOL_PERMISSION_RE.test(s),
+    { message: 'Must be "ToolName" or "ToolName(specifier)" — e.g. "Bash(git *)" or "Read(~/.env)"' }
+  )
+  .refine(
+    (s) => !s.toLowerCase().startsWith("mcp__"),
+    { message: 'MCP tool rules (mcp__*) belong in policy.servers, not policy.tools' }
+  )
+  .transform((s): ToolPermission => {
+    const m = TOOL_PERMISSION_RE.exec(s)!;
+    const tool = m[1]!;
+    const specifier = m[2];
+    return specifier === undefined ? { tool } : { tool, specifier };
+  });
+
+export type ToolPermission = { tool: string; specifier?: string };
 
 export const PolicyServerRulesSchema = z.object({
   tools: z.object({
@@ -227,6 +304,15 @@ export const PolicySchema = z.object({
   registryPolicy: z.enum(["allow-unverified", "warn-unverified", "registry-only"])
     .default("allow-unverified"),
   servers: z.record(z.string(), PolicyServerRulesSchema).optional(),
+  /**
+   * Top-level tool permissions written to provider-specific permission files
+   * during `vakt sync` (e.g. ~/.claude/settings.json for Claude Code).
+   * Providers without a native permissions config receive a sync-time notice.
+   */
+  tools: z.object({
+    allow: z.array(ToolPermissionSchema).optional(),
+    deny:  z.array(ToolPermissionSchema).optional(),
+  }).optional(),
   skills: z.object({
     /**
      * Unscoped skills (no `allowed-tools`) become gate errors instead of warnings.

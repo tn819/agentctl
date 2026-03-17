@@ -241,11 +241,11 @@ export function syncSkills(
     const src = join(skillsSource, entry);
     if (globalOnly && !isSkillGlobal(src)) continue;
     if (existsSync(dest)) { skipped.push(entry); continue; }
-    if (!dryRun) {
+    if (dryRun) {
+      linked.push(`[dry-run] Would link: ${entry}`);
+    } else {
       try { symlinkSync(src, dest); linked.push(entry); }
       catch (e) { errors.push(`${entry}: ${e}`); }
-    } else {
-      linked.push(`[dry-run] Would link: ${entry}`);
     }
   }
   return { linked, skipped, errors };

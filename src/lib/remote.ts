@@ -90,12 +90,10 @@ export async function mergeRemoteMcp(
   const changes: Record<string, "added" | "updated" | "unchanged"> = {};
   for (const [name, cfg] of Object.entries(remoteRaw)) {
     const tagged = { ...(cfg as Record<string, unknown>), _source: "remote" };
-    if (!(name in localRaw)) {
-      changes[name] = "added";
-    } else if (JSON.stringify(localRaw[name]) !== JSON.stringify(tagged)) {
-      changes[name] = "updated";
+    if (name in localRaw) {
+      changes[name] = JSON.stringify(localRaw[name]) === JSON.stringify(tagged) ? "unchanged" : "updated";
     } else {
-      changes[name] = "unchanged";
+      changes[name] = "added";
     }
     localRaw[name] = tagged;
   }
