@@ -56,6 +56,29 @@ function isValidKey(s: string): boolean {
   return true;
 }
 
+/** Parse a YAML block-array starting at lines[startIndex]. Returns items and next line index. */
+function parseBlockArray(lines: string[], startIndex: number): { items: string[]; nextIndex: number } {
+  const items: string[] = [];
+  let i = startIndex;
+  while (i < lines.length) {
+    const itemLine = lines[i]!.trimStart();
+    if (!itemLine.startsWith("- ")) break;
+    items.push(itemLine.slice(2).trim());
+    i++;
+  }
+  return { items, nextIndex: i };
+}
+
+/** Apply a scalar or inline-array frontmatter field to meta in-place. */
+function applyScalarField(meta: SkillMeta, key: string, trimmed: string): void {
+  if (key === "allowed-tools") {
+    const arr = parseInlineArray(trimmed);
+    if (arr) meta.allowedTools = arr;
+  } else if (key === "name")        { meta.name        = trimmed; }
+  else if (key === "description")   { meta.description = trimmed; }
+  else if (key === "version")       { meta.version     = trimmed; }
+}
+
 /**
  * Parse all structured frontmatter from a SKILL.md content string,
  * including the `allowed-tools` array field (inline or block style).
@@ -81,33 +104,14 @@ export function parseSkillFrontmatter(content: string): SkillMeta {
     if (!isValidKey(key)) { i++; continue; }
 
     const rest = line.slice(colonPos + 1).trimStart();
-
     if (rest === "") {
-      // Block-array key: "allowed-tools:" with list items on following lines
-      const items: string[] = [];
-      i++;
-      while (i < lines.length) {
-        const itemLine = lines[i]!.trimStart();
-        if (!itemLine.startsWith("- ")) break;
-        items.push(itemLine.slice(2).trim());
-        i++;
-      }
+      const { items, nextIndex } = parseBlockArray(lines, i + 1);
       if (key === "allowed-tools" && items.length) meta.allowedTools = items;
+      i = nextIndex;
       continue;
     }
 
-    // Scalar or inline-array
-    const trimmed = rest.trim();
-    switch (key) {
-      case "allowed-tools": {
-        const arr = parseInlineArray(trimmed);
-        if (arr) meta.allowedTools = arr;
-        break;
-      }
-      case "name":        meta.name        = trimmed; break;
-      case "description": meta.description = trimmed; break;
-      case "version":     meta.version     = trimmed; break;
-    }
+    applyScalarField(meta, key, rest.trim());
     i++;
   }
   return meta;
@@ -128,6 +132,42 @@ export function readSkillMeta(skillDir: string): SkillMeta {
  * Note: this is best-effort heuristic analysis — it cannot catch all
  * dangerous instructions, and some findings may be false positives.
  */
+function checkPipeToShell(lo: string): string | null {
+  if (!lo.includes("| sh") && !lo.includes("|sh") && !lo.includes("| bash") && !lo.includes("|bash")) return null;
+  if (lo.includes("curl"))  return "curl-pipe-sh";
+  if (lo.includes("wget"))  return "wget-pipe-sh";
+  if (lo.includes("base64") && lo.includes("-d")) return "base64-pipe-sh";
+  return null;
+}
+
+function checkRmRfAbsolute(lo: string): string | null {
+  if (!lo.includes("/")) return null;
+  const rmAt = lo.indexOf("rm ");
+  if (rmAt === -1) return null;
+  const pre = rmAt > 0 ? lo.charCodeAt(rmAt - 1) : 32;
+  const preIsLetter = (pre >= 97 && pre <= 122) || (pre >= 65 && pre <= 90);
+  if (preIsLetter) return null;
+  const look = lo.slice(rmAt + 3, rmAt + 27).trimStart();
+  if (look.startsWith("-") && look.includes("r") && lo.indexOf("/", rmAt) > rmAt) return "rm-rf-absolute";
+  return null;
+}
+
+function checkEvalExec(lo: string, line: string): string | null {
+  const evalAt = lo.indexOf("eval");
+  if (evalAt === -1) return null;
+  const pre = evalAt > 0 ? lo.charCodeAt(evalAt - 1) : 32;
+  const preIsWord = (pre >= 97 && pre <= 122) || (pre >= 48 && pre <= 57) || pre === 95;
+  if (preIsWord) return null;
+  let j = evalAt + 4;
+  while (j < line.length && (line[j] === " " || line[j] === "\t")) j++;
+  return '"\'`$('.includes(line[j] ?? "") ? "eval-exec" : null;
+}
+
+function checkSubshellCurl(lo: string, line: string): string | null {
+  if (lo.includes("curl") && (line.includes("$(") || line.includes("`"))) return "subshell-curl";
+  return null;
+}
+
 /**
  * Linear-time hazard check on a single line.
  * Uses string operations only (indexOf / includes / charCodeAt) so the
@@ -135,50 +175,10 @@ export function readSkillMeta(skillDir: string): SkillMeta {
  */
 function findLineHazard(line: string): string | null {
   const lo = line.toLowerCase();
-
-  // curl / wget / base64 piped to a shell interpreter
-  if (lo.includes("| sh") || lo.includes("|sh") || lo.includes("| bash") || lo.includes("|bash")) {
-    if (lo.includes("curl"))  return "curl-pipe-sh";
-    if (lo.includes("wget"))  return "wget-pipe-sh";
-    if (lo.includes("base64") && lo.includes("-d")) return "base64-pipe-sh";
-  }
-
-  // rm with a recursive flag operating on an absolute path  (e.g. rm -rf /)
-  if (lo.includes("/")) {
-    const rmAt = lo.indexOf("rm ");
-    if (rmAt !== -1) {
-      // word-boundary: char before "rm" must not be a letter
-      const pre = rmAt > 0 ? lo.charCodeAt(rmAt - 1) : 32;
-      if (!((pre >= 97 && pre <= 122) || (pre >= 65 && pre <= 90))) {
-        // bounded look-ahead (24 chars) for a flag containing "r"
-        const look = lo.slice(rmAt + 3, rmAt + 27).trimStart();
-        if (look.startsWith("-") && look.includes("r") && lo.indexOf("/", rmAt) > rmAt) {
-          return "rm-rf-absolute";
-        }
-      }
-    }
-  }
-
-  // eval followed by an exec delimiter (word-boundary + optional whitespace)
-  const evalAt = lo.indexOf("eval");
-  if (evalAt !== -1) {
-    const pre = evalAt > 0 ? lo.charCodeAt(evalAt - 1) : 32;
-    const preIsWord = (pre >= 97 && pre <= 122) || (pre >= 48 && pre <= 57) || pre === 95;
-    if (!preIsWord) {
-      // skip optional whitespace after "eval"
-      let j = evalAt + 4;
-      while (j < line.length && (line[j] === " " || line[j] === "\t")) j++;
-      const next = line[j] ?? "";
-      if ('"\'`$('.includes(next)) return "eval-exec";
-    }
-  }
-
-  // subshell invocation of curl:  $(curl ...) or `curl ...`
-  if (lo.includes("curl") && (line.includes("$(") || line.includes("`"))) {
-    return "subshell-curl";
-  }
-
-  return null;
+  return checkPipeToShell(lo)
+    ?? checkRmRfAbsolute(lo)
+    ?? checkEvalExec(lo, line)
+    ?? checkSubshellCurl(lo, line);
 }
 
 export function scanSkillHazards(skillDir: string): SkillHazard[] {
