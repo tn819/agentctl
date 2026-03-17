@@ -1,11 +1,13 @@
 ---
 name: skill-creator
 description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.
+global: true
+allowed-tools: [Bash, Read, Write]
 ---
 
 # Skill Creator
 
-A skill for creating new skills and iteratively improving them using agentctl's provider-agnostic approach.
+A skill for creating new skills and iteratively improving them using vakt's provider-agnostic approach.
 
 ## Overview
 
@@ -17,7 +19,7 @@ At a high level, the process of creating a skill goes like this:
 - Help the user evaluate the results both qualitatively and quantitatively
 - Rewrite the skill based on feedback
 - Repeat until satisfied
-- Use agentctl to install and sync the skill to all providers
+- Use vakt to install and sync the skill to all providers
 
 ## Communicating with the User
 
@@ -119,7 +121,7 @@ Once the skill is created, register it and sync to all providers:
 
 ```bash
 # The skill is already in ~/.agents/skills/, so just sync
-agentctl sync --skills-only
+vakt sync --skills-only
 ```
 
 This symlinks the skill to all installed providers:
@@ -131,7 +133,7 @@ This symlinks the skill to all installed providers:
 ### Step 7: Verify Installation
 
 ```bash
-agentctl list
+vakt list
 ```
 
 This shows all skills and which providers they're available in.
@@ -177,7 +179,7 @@ Based on test results:
 After each improvement, re-sync:
 
 ```bash
-agentctl sync --skills-only
+vakt sync --skills-only
 ```
 
 ---
@@ -187,7 +189,7 @@ agentctl sync --skills-only
 ### Locate the Skill
 
 ```bash
-agentctl list
+vakt list
 ```
 
 Skills are stored in `~/.agents/skills/<skill-name>/`.
@@ -198,7 +200,7 @@ Skills are stored in `~/.agents/skills/<skill-name>/`.
 2. Re-sync to all providers:
 
 ```bash
-agentctl sync --skills-only
+vakt sync --skills-only
 ```
 
 ### Testing Improvements
@@ -255,13 +257,13 @@ git push -u origin main
 Others can install with:
 
 ```bash
-agentctl add-skill https://github.com/username/<skill-name>
-agentctl sync
+vakt add-skill https://github.com/username/<skill-name>
+vakt sync
 ```
 
-### Option 2: Include in agentctl Bundle
+### Option 2: Include in vakt Bundle
 
-For skills that should be bundled with agentctl by default, contribute to the agentctl repository.
+For skills that should be bundled with vakt by default, contribute to the vakt repository.
 
 ---
 
@@ -270,10 +272,10 @@ For skills that should be bundled with agentctl by default, contribute to the ag
 | Action                 | Command                            |
 | ---------------------- | ---------------------------------- |
 | Create skill directory | `mkdir -p ~/.agents/skills/<name>` |
-| List skills            | `agentctl list`                    |
-| Sync to providers      | `agentctl sync --skills-only`      |
-| Add skill from URL     | `agentctl add-skill <url>`         |
-| Add skill from path    | `agentctl add-skill ./path <name>` |
+| List skills            | `vakt list`                    |
+| Sync to providers      | `vakt sync --skills-only`      |
+| Add skill from URL     | `vakt add-skill <url>`         |
+| Add skill from path    | `vakt add-skill ./path <name>` |
 
 ---
 
@@ -284,7 +286,7 @@ For skills that should be bundled with agentctl by default, contribute to the ag
 3. **Test** - Run realistic prompts
 4. **Evaluate** - Check outputs against expectations
 5. **Improve** - Refine based on feedback
-6. **Sync** - `agentctl sync --skills-only`
+6. **Sync** - `vakt sync --skills-only`
 7. **Repeat** - Until satisfied
 
 Good luck!

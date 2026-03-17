@@ -6,6 +6,9 @@
       "@semantic-release/commit-analyzer",
       {
         "preset": "conventionalcommits",
+        "parserOpts": {
+          "noteKeywords": []
+        },
         "releaseRules": [
           { "breaking": true, "release": "minor" },
           { "type": "feat", "release": "minor" },
@@ -44,12 +47,12 @@
       {
         "assets": [
           {
-            "path": "vakt-*.tar.gz",
-            "label": "vakt CLI"
+            "path": "vakt-*-linux-x86_64.tar.gz",
+            "label": "vakt CLI (Linux x86_64)"
           },
           {
             "path": "checksums.txt",
-            "label": "SHA-256 checksums"
+            "label": "SHA-256 checksums (Linux)"
           }
         ]
       }
@@ -65,7 +68,7 @@
   "prepare": [
     {
       "path": "@semantic-release/exec",
-      "cmd": "bun build src/index.ts --compile --outfile dist/vakt && tar -czf /tmp/vakt-${nextRelease.version}.tar.gz dist/vakt && mv /tmp/vakt-${nextRelease.version}.tar.gz . && sha256sum vakt-${nextRelease.version}.tar.gz dist/vakt > checksums.txt"
+      "cmd": "bun build src/index.ts --compile --outfile dist/vakt && tar -czf /tmp/vakt-${nextRelease.version}-linux-x86_64.tar.gz -C dist vakt && mv /tmp/vakt-${nextRelease.version}-linux-x86_64.tar.gz . && sha256sum vakt-${nextRelease.version}-linux-x86_64.tar.gz dist/vakt > checksums.txt"
     }
   ]
 }

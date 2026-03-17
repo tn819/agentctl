@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Integration test: Full agentctl workflow
+# Integration test: Full vakt workflow
 
 load '../test_helper'
 
@@ -14,26 +14,26 @@ teardown() {
 
 @test "full workflow: init -> config -> secrets -> add-server -> add-skill -> sync" {
   # 1. Initialize
-  run agentctl init
+  run vakt init
   [ "$status" -eq 0 ]
   assert_dir_exists "$AGENTS_DIR"
   
   # 2. Configure paths
-  run agentctl config set paths.code "~/Projects"
+  run vakt config set paths.code "~/Projects"
   [ "$status" -eq 0 ]
   
-  run agentctl config get paths.code
+  run vakt config get paths.code
   [ "$output" = "~/Projects" ]
   
   # 3. Add secrets
-  run agentctl secrets set GITHUB_TOKEN "ghp_test123"
+  run vakt secrets set GITHUB_TOKEN "ghp_test123"
   [ "$status" -eq 0 ]
   
-  run agentctl secrets get GITHUB_TOKEN
+  run vakt secrets get GITHUB_TOKEN
   [ "$output" = "ghp_test123" ]
   
   # 4. Add MCP server
-  run agentctl add-server my-github npx -y @modelcontextprotocol/server-github
+  run vakt add-server my-github npx -y @modelcontextprotocol/server-github
   [ "$status" -eq 0 ]
   
   # 5. Add skill
@@ -42,11 +42,11 @@ teardown() {
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "test-skill"
 
-  run agentctl add-skill "$skill_dir"
+  run vakt add-skill "$skill_dir"
   [ "$status" -eq 0 ]
 
   # 6. List everything (skill_base kept alive so symlink resolves)
-  run agentctl list
+  run vakt list
   rm -rf "$skill_base"
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-github"* ]]
@@ -54,17 +54,17 @@ teardown() {
   [[ "$output" == *"GITHUB_TOKEN"* ]]
   
   # 7. Sync (dry-run)
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   [ "$status" -eq 0 ]
 }
 
 @test "workflow: multiple servers and skills" {
-  agentctl init
+  vakt init
   
   # Add multiple servers
-  agentctl add-server fs npx -y @modelcontextprotocol/server-filesystem /tmp
-  agentctl add-server gh npx -y @modelcontextprotocol/server-github
-  agentctl add-server http-server --http https://api.example.com/mcp
+  vakt add-server fs npx -y @modelcontextprotocol/server-filesystem /tmp
+  vakt add-server gh npx -y @modelcontextprotocol/server-github
+  vakt add-server http-server --http https://api.example.com/mcp
   
   # Add multiple skills
   local skill_bases=()
@@ -74,11 +74,11 @@ teardown() {
     local skill_dir="$base/skill-$i"
     mkdir -p "$skill_dir"
     create_test_skill "$skill_dir" "skill-$i"
-    agentctl add-skill "$skill_dir"
+    vakt add-skill "$skill_dir"
   done
 
   # Verify all are listed (keep dirs alive so symlinks resolve)
-  run agentctl list
+  run vakt list
   for base in "${skill_bases[@]}"; do rm -rf "$base"; done
   [ "$status" -eq 0 ]
 
@@ -91,107 +91,107 @@ teardown() {
 }
 
 @test "workflow: update and re-sync" {
-  agentctl init
+  vakt init
   
   # Initial setup
-  agentctl add-server test-server npx -y test-mcp
-  agentctl secrets set TEST_TOKEN "initial_token"
+  vakt add-server test-server npx -y test-mcp
+  vakt secrets set TEST_TOKEN "initial_token"
   
   # Sync
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   [ "$status" -eq 0 ]
   
   # Update config
-  agentctl add-server test-server npx -y updated-mcp
+  vakt add-server test-server npx -y updated-mcp
   
   # Update secret
-  agentctl secrets set TEST_TOKEN "updated_token"
+  vakt secrets set TEST_TOKEN "updated_token"
   
   # Re-sync
-  run agentctl sync --dry-run
+  run vakt sync --dry-run
   [ "$status" -eq 0 ]
   
   # Verify updates
-  run agentctl secrets get TEST_TOKEN
+  run vakt secrets get TEST_TOKEN
   [ "$output" = "updated_token" ]
 }
 
 @test "workflow: delete and cleanup" {
-  agentctl init
-  agentctl secrets set TEMP_KEY "temp_value"
+  vakt init
+  vakt secrets set TEMP_KEY "temp_value"
   
   # Verify secret exists
-  run agentctl secrets get TEMP_KEY
+  run vakt secrets get TEMP_KEY
   [ "$output" = "temp_value" ]
   
   # Delete secret
-  run agentctl secrets delete TEMP_KEY
+  run vakt secrets delete TEMP_KEY
   [ "$status" -eq 0 ]
   
   # Verify deletion
-  run agentctl secrets get TEMP_KEY
+  run vakt secrets get TEMP_KEY
   [ "$status" -eq 1 ]
 }
 
 @test "workflow: error recovery" {
-  agentctl init
+  vakt init
   
   # Try invalid command
-  run agentctl add-server
+  run vakt add-server
   [ "$status" -eq 1 ]
   
   # System should still work
-  run agentctl config list
+  run vakt config list
   [ "$status" -eq 0 ]
   
   # Try adding skill with invalid path
-  run agentctl add-skill "/non/existent/path"
+  run vakt add-skill "/non/existent/path"
   [ "$status" -eq 1 ]
   
   # System should still work
-  run agentctl list
+  run vakt list
   [ "$status" -eq 0 ]
 }
 
 @test "workflow: config modifications" {
-  agentctl init
+  vakt init
   
   # Modify multiple config values
-  agentctl config set paths.code "~/MyCode"
-  agentctl config set paths.documents "~/MyDocs"
-  agentctl config set paths.vault "~/MyVault"
-  agentctl config set secretsBackend "env"
+  vakt config set paths.code "~/MyCode"
+  vakt config set paths.documents "~/MyDocs"
+  vakt config set paths.vault "~/MyVault"
+  vakt config set secretsBackend "env"
   
   # Verify all changes
-  run agentctl config get paths.code
+  run vakt config get paths.code
   [ "$output" = "~/MyCode" ]
   
-  run agentctl config get paths.documents
+  run vakt config get paths.documents
   [ "$output" = "~/MyDocs" ]
   
-  run agentctl config get paths.vault
+  run vakt config get paths.vault
   [ "$output" = "~/MyVault" ]
   
-  run agentctl config get secretsBackend
+  run vakt config get secretsBackend
   [ "$output" = "env" ]
 }
 
 @test "workflow: re-initialize" {
   # First init
-  agentctl init
-  agentctl config set paths.code "~/First"
+  vakt init
+  vakt config set paths.code "~/First"
   
   # Re-init with overwrite
-  run agentctl init <<< "y"
+  run vakt init <<< "y"
   [ "$status" -eq 0 ]
   
   # Should be back to defaults
-  run agentctl config get paths.code
+  run vakt config get paths.code
   [ "$output" = "~/Code" ]
 }
 
 @test "workflow: secrets with special characters" {
-  agentctl init
+  vakt init
 
   # Test various special characters — use a stable key per iteration
   local test_values=(
@@ -205,9 +205,9 @@ teardown() {
   local i=0
   for value in "${test_values[@]}"; do
     local key="SPECIAL_KEY_$i"
-    agentctl secrets set "$key" "$value"
+    vakt secrets set "$key" "$value"
 
-    run agentctl secrets get "$key"
+    run vakt secrets get "$key"
     [ "$status" -eq 0 ]
     [ "$output" = "$value" ]
     (( i++ )) || true
@@ -215,32 +215,32 @@ teardown() {
 }
 
 @test "workflow: list filtering" {
-  agentctl init
-  agentctl add-server test-server npx -y test-mcp
+  vakt init
+  vakt add-server test-server npx -y test-mcp
   
   local skill_base="$(mktemp -d)"
   local skill_dir="$skill_base/test-skill"
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "test-skill"
-  agentctl add-skill "$skill_dir"
+  vakt add-skill "$skill_dir"
 
-  agentctl secrets set TEST_KEY "value"
+  vakt secrets set TEST_KEY "value"
   
   # List only servers
-  run agentctl list servers
+  run vakt list servers
   [ "$status" -eq 0 ]
   [[ "$output" == *"test-server"* ]]
   [[ "$output" != *"test-skill"* ]]
   [[ "$output" != *"TEST_KEY"* ]]
 
   # List only skills (keep skill_base alive so symlink resolves)
-  run agentctl list skills
+  run vakt list skills
   [ "$status" -eq 0 ]
   [[ "$output" == *"test-skill"* ]]
   [[ "$output" != *"test-server"* ]]
 
   # List only secrets
-  run agentctl list secrets
+  run vakt list secrets
   rm -rf "$skill_base"
   [ "$status" -eq 0 ]
   [[ "$output" == *"TEST_KEY"* ]]

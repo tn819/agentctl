@@ -1,11 +1,14 @@
 import { join, dirname } from "node:path";
-import { existsSync, mkdirSync, symlinkSync, readdirSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, readdirSync, readFileSync } from "node:fs";
+import { z } from "zod";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfig, McpServer, Provider, StdioServer, HttpServer } from "./schemas";
+import { McpServerSchema } from "./schemas";
 import { expandPaths } from "./config";
 import { resolveSecretRefs } from "./secrets";
+import { isSkillGlobal } from "./skills";
 
-export type ResolvedServer = McpServer;
+export type ResolvedServer = Omit<z.infer<typeof McpServerSchema>, 'global'>;
 export type ResolvedConfig = Record<string, ResolvedServer>;
 
 export async function resolveServer(
@@ -66,6 +69,31 @@ export async function resolveAll(
   return { resolved, allMissing };
 }
 
+type HttpMapping = NonNullable<Provider["configStructure"]["httpPropertyMapping"]>;
+type StdioMapping = NonNullable<Provider["configStructure"]["stdioPropertyMapping"]>;
+
+function formatHttpServer(s: HttpServer, hm: HttpMapping): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (hm.typeProperty && hm.typeValue) out[hm.typeProperty] = hm.typeValue;
+  if (hm.urlProperty) out[hm.urlProperty] = s.url;
+  if (hm.headersProperty && s.headers) out[hm.headersProperty] = s.headers;
+  return out;
+}
+
+function formatStdioServer(s: StdioServer, sm: StdioMapping): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (sm.typeProperty && sm.typeValue) out[sm.typeProperty] = sm.typeValue;
+  if (sm.commandProperty && sm.commandProperty === sm.argsProperty) {
+    out[sm.commandProperty] = [s.command, ...(s.args ?? [])];
+  } else {
+    if (sm.commandProperty) out[sm.commandProperty] = s.command;
+    if (sm.argsProperty && s.args?.length) out[sm.argsProperty] = s.args;
+  }
+  if (sm.envProperty && s.env) out[sm.envProperty] = s.env;
+  if (s.cwd) out["cwd"] = s.cwd;
+  return out;
+}
+
 function formatServer(
   _name: string,
   server: ResolvedServer,
@@ -73,31 +101,8 @@ function formatServer(
 ): Record<string, unknown> {
   const { stdioPropertyMapping: sm, httpPropertyMapping: hm } = provider.configStructure;
   const isHttp = "transport" in server && (server as HttpServer).transport === "http";
-
-  if (isHttp && hm) {
-    const s = server as HttpServer;
-    const out: Record<string, unknown> = {};
-    if (hm.typeProperty && hm.typeValue) out[hm.typeProperty] = hm.typeValue;
-    if (hm.urlProperty) out[hm.urlProperty] = s.url;
-    if (hm.headersProperty && s.headers) out[hm.headersProperty] = s.headers;
-    return out;
-  }
-
-  if (!isHttp && sm) {
-    const s = server as StdioServer;
-    const out: Record<string, unknown> = {};
-    if (sm.typeProperty && sm.typeValue) out[sm.typeProperty] = sm.typeValue;
-    if (sm.commandProperty && sm.commandProperty === sm.argsProperty) {
-      out[sm.commandProperty] = [s.command, ...(s.args ?? [])];
-    } else {
-      if (sm.commandProperty) out[sm.commandProperty] = s.command;
-      if (sm.argsProperty && s.args?.length) out[sm.argsProperty] = s.args;
-    }
-    if (sm.envProperty && s.env) out[sm.envProperty] = s.env;
-    if (s.cwd) out["cwd"] = s.cwd;
-    return out;
-  }
-
+  if (isHttp && hm) return formatHttpServer(server as HttpServer, hm);
+  if (!isHttp && sm) return formatStdioServer(server as StdioServer, sm);
   return server as unknown as Record<string, unknown>;
 }
 
@@ -221,7 +226,8 @@ export async function writeTomlConfig(
 export function syncSkills(
   skillsSource: string,
   skillsTarget: string,
-  dryRun: boolean
+  dryRun: boolean,
+  globalOnly = true,
 ): { linked: string[]; skipped: string[]; errors: string[] } {
   const linked: string[] = [];
   const skipped: string[] = [];
@@ -233,6 +239,7 @@ export function syncSkills(
   for (const entry of readdirSync(skillsSource)) {
     const dest = join(skillsTarget, entry);
     const src = join(skillsSource, entry);
+    if (globalOnly && !isSkillGlobal(src)) continue;
     if (existsSync(dest)) { skipped.push(entry); continue; }
     if (!dryRun) {
       try { symlinkSync(src, dest); linked.push(entry); }

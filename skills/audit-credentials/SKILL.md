@@ -1,6 +1,8 @@
 ---
 name: audit-credentials
 version: 0.0.1
+global: true
+allowed-tools: [Bash, Read]
 description: |
   Audits local credential setup for security compliance and produces a report.
 
@@ -102,8 +104,8 @@ Scans the current git repository for hardcoded credential patterns:
 **Rotation overdue:**
 ```bash
 # macOS Keychain — delete and re-add
-security delete-generic-password -s agentctl -a MY_KEY
-security add-generic-password -s agentctl -a MY_KEY -w
+security delete-generic-password -s vakt -a MY_KEY
+security add-generic-password -s vakt -a MY_KEY -w
 ```
 
 **Found in shell history:**

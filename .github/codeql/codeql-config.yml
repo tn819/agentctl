@@ -1,0 +1,6 @@
+# Limit CodeQL default setup to javascript-typescript only.
+# The "actions" language analyser fails with "no source code seen" because
+# all workflow actions use pinned SHA references, which CodeQL's actions
+# database finaliser does not recognise as analysable source.
+languages:
+  - javascript-typescript

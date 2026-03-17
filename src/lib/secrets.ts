@@ -8,10 +8,24 @@ const SERVICE = process.env["AGENTS_SERVICE"] ?? "vakt";
 const ENV_FILE = join(AGENTS_DIR, "secrets.env");
 
 async function run(cmd: string, args: string[]): Promise<{ stdout: string; ok: boolean }> {
-  const proc = Bun.spawn([cmd, ...args], { stdout: "pipe", stderr: "pipe" });
-  const stdout = await new Response(proc.stdout).text();
-  const ok = (await proc.exited) === 0;
-  return { stdout: stdout.trim(), ok };
+  const timeoutMs = Number.parseInt(process.env["AGENTS_RUN_TIMEOUT_MS"] ?? "3000", 10);
+  try {
+    const proc = Bun.spawn([cmd, ...args], { stdout: "pipe", stderr: "pipe" });
+    const timeoutPromise = new Promise<{ stdout: string; ok: boolean }>((resolve) => {
+      setTimeout(() => {
+        proc.kill();
+        resolve({ stdout: "", ok: false });
+      }, timeoutMs);
+    });
+    const runPromise = (async () => {
+      const stdout = await new Response(proc.stdout).text();
+      const ok = (await proc.exited) === 0;
+      return { stdout: stdout.trim(), ok };
+    })();
+    return await Promise.race([runPromise, timeoutPromise]);
+  } catch {
+    return { stdout: "", ok: false };
+  }
 }
 
 function keychainAccessible(): boolean {
@@ -66,7 +80,8 @@ async function keychainList(): Promise<string[]> {
 // ── pass (Linux GPG) ──────────────────────────────────────────────────────────
 
 async function passSet(key: string, value: string): Promise<void> {
-  const proc = Bun.spawn(["pass", "insert", "--force", `${SERVICE}/${key}`], {
+  // --echo: read password once (no confirmation prompt) — required for non-TTY stdin
+  const proc = Bun.spawn(["pass", "insert", "--force", "--echo", `${SERVICE}/${key}`], {
     stdin: new TextEncoder().encode(value),
     stdout: "pipe",
     stderr: "pipe",

@@ -12,6 +12,7 @@ function parseServerEntry(r: ReturnType<typeof RawProviderServerSchema.parse>): 
       transport: "http",
       url: (r["url"] ?? r["httpUrl"] ?? r["serverUrl"]) as string,
       ...(r["headers"] ? { headers: r["headers"] as Record<string, string> } : {}),
+      global: false,
     };
   }
   const cmdRaw = r["command"];
@@ -29,6 +30,7 @@ function parseServerEntry(r: ReturnType<typeof RawProviderServerSchema.parse>): 
     ...(args?.length ? { args } : {}),
     ...(r["env"] ? { env: r["env"] as Record<string, string> } : {}),
     ...(r["cwd"] ? { cwd: r["cwd"] as string } : {}),
+    global: false,
   };
 }
 
@@ -71,6 +73,17 @@ function mergeServers(
   return imported;
 }
 
+async function linkSkillEntry(entry: string, skillsSource: string, skillsTarget: string): Promise<void> {
+  const src = join(skillsSource, entry);
+  const dest = join(skillsTarget, entry);
+  if (!lstatSync(src).isDirectory()) return;
+  if (existsSync(dest)) return;
+  const { symlinkSync, mkdirSync } = await import("fs");
+  mkdirSync(skillsTarget, { recursive: true });
+  symlinkSync(src, dest);
+  console.log(`  ✓  linked skill: ${entry}`);
+}
+
 async function importProviderSkills(
   providers: ReturnType<typeof loadProviders>,
   platform: PlatformKey,
@@ -85,14 +98,7 @@ async function importProviderSkills(
     if (!existsSync(skillsSource) || skillsSource === skillsTarget) continue;
     try {
       for (const entry of readdirSync(skillsSource)) {
-        const src = join(skillsSource, entry);
-        const dest = join(skillsTarget, entry);
-        if (!lstatSync(src).isDirectory()) continue;
-        if (existsSync(dest)) continue;
-        const { symlinkSync, mkdirSync } = await import("fs");
-        mkdirSync(skillsTarget, { recursive: true });
-        symlinkSync(src, dest);
-        console.log(`  ✓  linked skill: ${entry}`);
+        await linkSkillEntry(entry, skillsSource, skillsTarget);
       }
     } catch {}
   }

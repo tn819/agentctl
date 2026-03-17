@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl import-from-everywhere command
+# End-to-end tests for vakt import-from-everywhere command
 
 load '../test_helper'
 
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -16,13 +16,13 @@ teardown() {
 # ── MCP server import ────────────────────────────────────────────────────────
 
 @test "import-from-everywhere exits 0 with no providers present" {
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
 }
 
 @test "import-from-everywhere reports nothing new when no providers present" {
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"nothing new to import"* ]]
@@ -43,7 +43,7 @@ teardown() {
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"browser-tools"* ]]
@@ -62,7 +62,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-http-server"* ]]
@@ -82,7 +82,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-stdio-server"* ]]
@@ -108,7 +108,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "cursor-server"
@@ -137,7 +137,7 @@ PYEOF
 }
 JSON
 
-  agentctl import-from-everywhere
+  vakt import-from-everywhere
 
   # Original value must be preserved
   assert_json_equals "$AGENTS_DIR/mcp-config.json" "['existing-server']['command']" "original"
@@ -154,8 +154,8 @@ JSON
 }
 JSON
 
-  agentctl import-from-everywhere
-  run agentctl import-from-everywhere
+  vakt import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"nothing new to import"* ]]
@@ -171,7 +171,7 @@ JSON
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "my-skill"
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-skill"* ]]
@@ -186,8 +186,8 @@ JSON
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "existing-skill"
 
-  agentctl import-from-everywhere
-  run agentctl import-from-everywhere
+  vakt import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   # Should not error on already-linked skill
@@ -196,7 +196,7 @@ JSON
 
 @test "import-from-everywhere does not circular-link gemini native skills dir" {
   # Gemini reads ~/.agents/skills natively — import must not link it to itself
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   # No symlink pointing back to itself should exist
@@ -217,7 +217,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"2 server(s)"* ]]
@@ -241,7 +241,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"registry-driven-server"* ]]
@@ -262,7 +262,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"additional-path-server"* ]]
@@ -279,7 +279,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "cli-method-server"
@@ -300,7 +300,7 @@ JSON
 }
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   assert_json_key_exists "$AGENTS_DIR/mcp-config.json" "opencode-server"
@@ -315,7 +315,7 @@ JSON
 {"mcpServers": {"additional-server": {"command": "npx", "args": []}}}
 JSON
 
-  run agentctl import-from-everywhere
+  run vakt import-from-everywhere
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"2 server(s)"* ]]

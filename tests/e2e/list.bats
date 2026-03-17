@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# End-to-end tests for agentctl list command
+# End-to-end tests for vakt list command
 
 load '../test_helper'
 
 setup() {
   setup_test_env
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -13,30 +13,30 @@ teardown() {
 }
 
 @test "list shows MCP servers section" {
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"MCP Servers"* ]]
 }
 
 @test "list shows Skills section" {
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Skills"* ]]
 }
 
 @test "list shows Secrets section" {
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Secrets"* ]]
 }
 
 @test "list shows configured servers" {
-  agentctl add-server test-server npx -y test-mcp
+  vakt add-server test-server npx -y test-mcp
   
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"test-server"* ]]
@@ -47,9 +47,9 @@ teardown() {
   local skill_dir="$base/test-skill"
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "test-skill"
-  agentctl add-skill "$skill_dir"
+  vakt add-skill "$skill_dir"
 
-  run agentctl list
+  run vakt list
 
   rm -rf "$base"
   [ "$status" -eq 0 ]
@@ -61,9 +61,9 @@ teardown() {
   local skill_dir="$base/test-skill"
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "test-skill"
-  agentctl add-skill "$skill_dir"
+  vakt add-skill "$skill_dir"
 
-  run agentctl list
+  run vakt list
 
   rm -rf "$base"
   [ "$status" -eq 0 ]
@@ -73,7 +73,7 @@ teardown() {
 @test "list shows secrets backend" {
   mock_secrets_backend
   
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"Backend"* ]]
@@ -81,18 +81,18 @@ teardown() {
 
 @test "list shows stored secrets" {
   mock_secrets_backend
-  agentctl secrets set TEST_KEY "test_value"
+  vakt secrets set TEST_KEY "test_value"
   
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"TEST_KEY"* ]]
 }
 
 @test "list servers shows command" {
-  agentctl add-server my-server npx -y my-mcp
+  vakt add-server my-server npx -y my-mcp
   
-  run agentctl list servers
+  run vakt list servers
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-server"* ]]
@@ -104,9 +104,9 @@ teardown() {
   local skill_dir="$base/test-skill"
   mkdir -p "$skill_dir"
   create_test_skill "$skill_dir" "test-skill"
-  agentctl add-skill "$skill_dir"
+  vakt add-skill "$skill_dir"
 
-  run agentctl list skills
+  run vakt list skills
 
   rm -rf "$base"
   [ "$status" -eq 0 ]
@@ -116,9 +116,9 @@ teardown() {
 
 @test "list secrets only" {
   mock_secrets_backend
-  agentctl secrets set KEY1 "value1"
+  vakt secrets set KEY1 "value1"
   
-  run agentctl list secrets
+  run vakt list secrets
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"KEY1"* ]]
@@ -127,16 +127,16 @@ teardown() {
 }
 
 @test "list empty state" {
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"~/.agents/"* ]]
 }
 
 @test "list shows HTTP server URL" {
-  agentctl add-server http-server --http https://example.com/mcp
+  vakt add-server http-server --http https://example.com/mcp
   
-  run agentctl list
+  run vakt list
   
   [ "$status" -eq 0 ]
   [[ "$output" == *"https://example.com/mcp"* ]]
@@ -150,10 +150,10 @@ teardown() {
     local skill_dir="$base/skill-$i"
     mkdir -p "$skill_dir"
     create_test_skill "$skill_dir" "skill-$i"
-    agentctl add-skill "$skill_dir"
+    vakt add-skill "$skill_dir"
   done
 
-  run agentctl list
+  run vakt list
 
   for base in "${bases[@]}"; do rm -rf "$base"; done
   [ "$status" -eq 0 ]
