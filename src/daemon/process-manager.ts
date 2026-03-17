@@ -32,7 +32,7 @@ export class ProcessManager {
 
     const proc = Bun.spawn([server.command as string, ...(server.args as string[] ?? [])], {
       stdin: "pipe", stdout: "pipe", stderr: "pipe",
-      env: { ...process.env, ...(server.env as Record<string, string> ?? {}) },
+      env: { ...process.env, ...(server.env as Record<string, string>) },
     });
 
     this.procs[name] = proc;
