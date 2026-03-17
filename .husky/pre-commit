@@ -8,7 +8,11 @@ export AGENTS_SECRETS_BACKEND="env"  # never trigger macOS keychain dialogs in h
 # Lint staged production TypeScript files (sonarjs + @typescript-eslint rules)
 # Only lints files you're actually changing — pre-existing violations in unmodified
 # files don't block commits. Run `bunx eslint src/` to see the full picture.
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep '^src/.*\.ts$' | grep -v '\.test\.ts$' || true)
+# grep exits 1 when there are no matches — that is not an error here.
+# We collect into a variable and only lint when the list is non-empty.
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM \
+  | { grep '^src/.*\.ts$' || true; } \
+  | { grep -v '\.test\.ts$' || true; })
 if [ -n "$STAGED_TS" ]; then
   # shellcheck disable=SC2086
   bunx eslint $STAGED_TS
