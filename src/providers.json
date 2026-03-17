@@ -81,7 +81,13 @@
         "win32": "%USERPROFILE%\\.claude\\skills"
       },
       "method": "symlink"
-    }
+    },
+    "permissionsPath": {
+      "darwin": "$HOME/.claude/settings.json",
+      "linux": "$HOME/.claude/settings.json",
+      "win32": "%USERPROFILE%\\.claude\\settings.json"
+    },
+    "permissionsFormat": "claude-settings"
   },
 
   "gemini": {

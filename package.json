@@ -15,6 +15,7 @@
     "lint:fix": "eslint src/ --ignore-pattern '**/*.test.ts' --fix",
     "lint:md": "markdownlint-cli2 \"docs/adr/**/*.md\"",
     "lint:adr": "bun run scripts/check-adrs.ts",
+    "check:tool-enum": "bun run scripts/check-tool-enum.ts",
     "lint:docs": "bun run lint:md && bun run lint:adr",
     "pretest": "chmod +x src/vakt.sh",
     "prepare": "husky"

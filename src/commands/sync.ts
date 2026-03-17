@@ -8,6 +8,7 @@ import { isSkillClassified, setSkillGlobal, isGitRepo, fetchAndCheckSkill, pullS
 import { collectGateIssues } from "../lib/sync-gate";
 import { promptBoolean } from "../lib/prompt";
 import { loadPolicy } from "../lib/policy";
+import { makePermissionsAdapter } from "../lib/permissions";
 import { AuditStore } from "../lib/audit";
 import { resolveAll, formatForProvider, writeJsonConfig, writeTomlConfig, syncSkills } from "../lib/resolver";
 import type { ResolvedConfig } from "../lib/resolver";
@@ -205,6 +206,55 @@ async function syncMcpServers(
   }
 }
 
+function logPermissionsResult(result: import("../lib/permissions").PermissionsResult, dryRun: boolean): void {
+  for (const w of result.warnings) warn(w);
+  const allowSuffix = result.allow.length > 0 ? `  allow: ${result.allow.length}` : "";
+  const denySuffix  = result.deny.length  > 0 ? `  deny: ${result.deny.length}`   : "";
+  if (dryRun) {
+    info(`[dry-run] Would write ${result.path}${allowSuffix}${denySuffix}`);
+  } else {
+    ok(`wrote ${result.path}${dim(allowSuffix)}${dim(denySuffix)}`);
+  }
+}
+
+function syncProviderPermissions(
+  provider: Provider,
+  allow: import("../lib/schemas").ToolPermission[],
+  deny: import("../lib/schemas").ToolPermission[],
+  dryRun: boolean,
+): void {
+  if (!isInstalled(provider.detectCommand)) {
+    warn(`${provider.detectCommand} not found, skipping`);
+    return;
+  }
+  if (!provider.permissionsPath || !provider.permissionsFormat) {
+    warn(
+      `policy.tools is set but ${provider.displayName} has no permissions config target — ` +
+      `proxy (layer 1) is the only enforcement path for this provider`,
+    );
+    return;
+  }
+  const platformPath = provider.permissionsPath[process.platform as "darwin" | "linux" | "win32"];
+  if (!platformPath) {
+    warn(`no permissionsPath for platform ${process.platform}, skipping`);
+    return;
+  }
+  const result = makePermissionsAdapter(provider.permissionsFormat, platformPath).apply(allow, deny, dryRun);
+  logPermissionsResult(result, dryRun);
+}
+
+function syncPermissions(providers: Provider[], policy: Policy | null, dryRun: boolean): void {
+  const allow = policy?.tools?.allow ?? [];
+  const deny  = policy?.tools?.deny  ?? [];
+  if (allow.length + deny.length === 0) return;
+
+  console.log(`\n${bold("── Permissions ─────────────────────────────────────────────")}`);
+  for (const provider of providers) {
+    console.log(`\n  ${bold(provider.displayName)}`);
+    syncProviderPermissions(provider, allow, deny, dryRun);
+  }
+}
+
 async function syncSkillsToProviders(
   providers: Provider[],
   agentsDir: string,
@@ -308,6 +358,87 @@ async function promptUnclassifiedResources(agentsDir: string): Promise<void> {
   }
 }
 
+type GateIssue = ReturnType<typeof collectGateIssues>["issues"][number];
+
+function printIssueGroup(heading: string, issues: GateIssue[]): void {
+  if (issues.length === 0) return;
+  console.log(`\n  ${bold(heading)}`);
+  for (const issue of issues) {
+    const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
+    console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
+  }
+}
+
+function pluralCount(n: number, word: string): string {
+  return n > 0 ? `${n} ${word}${n > 1 ? "s" : ""}` : "";
+}
+
+function printGateIssues(gate: ReturnType<typeof collectGateIssues>): void {
+  printIssueGroup("Skills",      gate.issues.filter(i => i.source === "skill"));
+  printIssueGroup("MCP Servers", gate.issues.filter(i => i.source === "mcp"));
+
+  const errCount  = gate.issues.filter(i => i.severity === "error").length;
+  const warnCount = gate.issues.filter(i => i.severity === "warn").length;
+  const summary   = [pluralCount(errCount, "error"), pluralCount(warnCount, "warning")]
+    .filter(Boolean).join(", ");
+  console.log(`\n  ${summary} found.`);
+}
+
+async function runSafetyGate(
+  agentsDir: string,
+  mcpConfig: import("../lib/schemas").McpConfig,
+  policy: Policy | null,
+  opts: { mcpOnly: boolean; skillsOnly: boolean; ci: boolean },
+): Promise<boolean> {
+  const gateSkillsDir = opts.mcpOnly ? "" : join(agentsDir, "skills");
+  const gateMcpConfig = opts.skillsOnly ? {} as import("../lib/schemas").McpConfig : mcpConfig;
+  const gate = collectGateIssues(gateSkillsDir, gateMcpConfig, policy);
+  if (gate.issues.length === 0) return true;
+
+  console.log(`\n${bold("── Pre-sync Safety Check ────────────────────────────────────")}`);
+  printGateIssues(gate);
+
+  if (gate.hasErrors) {
+    if (opts.ci) { err("Sync blocked — fix errors or use --force to bypass."); return false; }
+    const proceed = await promptBoolean("  Proceed with sync anyway?");
+    if (!proceed) { console.log("  Aborted."); return false; }
+  } else if (gate.hasWarnings && !opts.ci) {
+    const proceed = await promptBoolean("  Proceed with sync?");
+    if (!proceed) { console.log("  Aborted."); return false; }
+  }
+  return true;
+}
+
+async function syncSkillPhase(
+  providers: Provider[],
+  agentsDir: string,
+  dryRun: boolean,
+  all: boolean,
+  noUpdateSkills: boolean,
+): Promise<void> {
+  if (!noUpdateSkills) {
+    console.log(`\n${bold("── Skill Updates ───────────────────────────────────────────")}`);
+    await refreshSkills(agentsDir, dryRun);
+  }
+  await syncSkillsToProviders(providers, agentsDir, dryRun, !all);
+}
+
+function recordSyncAudit(
+  providers: Provider[],
+  mcpConfig: import("../lib/schemas").McpConfig,
+  dryRun: boolean,
+): void {
+  try {
+    const auditStore = new AuditStore();
+    auditStore.init();
+    auditStore.recordSync({
+      providers: providers.map((p: Provider) => p.id),
+      servers: Object.keys(mcpConfig),
+      dryRun,
+    });
+  } catch { /* audit failures are non-fatal */ }
+}
+
 export function registerSync(program: Command): void {
   program
     .command("sync")
@@ -346,52 +477,8 @@ export function registerSync(program: Command): void {
 
       // ── Pre-sync safety gate ──────────────────────────────────────────────
       if (!force && !dryRun) {
-        const gateSkillsDir = mcpOnly ? "" : join(agentsDir, "skills");
-        const gateMcpConfig = skillsOnly ? {} : mcpConfig;
-        const gate = collectGateIssues(gateSkillsDir, gateMcpConfig as import("../lib/schemas").McpConfig, policy);
-
-        if (gate.issues.length > 0) {
-          console.log(`\n${bold("── Pre-sync Safety Check ────────────────────────────────────")}`);
-
-          const skillIssues = gate.issues.filter(i => i.source === "skill");
-          const mcpIssues   = gate.issues.filter(i => i.source === "mcp");
-
-          if (skillIssues.length > 0) {
-            console.log(`\n  ${bold("Skills")}`);
-            for (const issue of skillIssues) {
-              const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
-              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
-            }
-          }
-
-          if (mcpIssues.length > 0) {
-            console.log(`\n  ${bold("MCP Servers")}`);
-            for (const issue of mcpIssues) {
-              const icon = issue.severity === "error" ? red("✗") : yellow("⚠");
-              console.log(`  ${icon}  ${bold(issue.name)}  ${dim(issue.code)}  ${dim(issue.detail)}`); // NOSONAR — intentional CLI output of local config scan
-            }
-          }
-
-          const errCount  = gate.issues.filter(i => i.severity === "error").length;
-          const warnCount = gate.issues.filter(i => i.severity === "warn").length;
-          const summary   = [
-            errCount  > 0 ? `${errCount} error${errCount  > 1 ? "s" : ""}` : "",
-            warnCount > 0 ? `${warnCount} warning${warnCount > 1 ? "s" : ""}` : "",
-          ].filter(Boolean).join(", ");
-          console.log(`\n  ${summary} found.`);
-
-          if (gate.hasErrors) {
-            if (ci) {
-              err("Sync blocked — fix errors or use --force to bypass.");
-              process.exit(1);
-            }
-            const proceed = await promptBoolean("  Proceed with sync anyway?");
-            if (!proceed) { console.log("  Aborted."); process.exit(1); }
-          } else if (gate.hasWarnings && !ci) {
-            const proceed = await promptBoolean("  Proceed with sync?");
-            if (!proceed) { console.log("  Aborted."); process.exit(1); }
-          }
-        }
+        const ok_ = await runSafetyGate(agentsDir, mcpConfig, policy, { mcpOnly, skillsOnly, ci });
+        if (!ok_) process.exit(1);
       }
 
       // Prompt for unclassified resources (only when not --all and not --dry-run)
@@ -412,24 +499,13 @@ export function registerSync(program: Command): void {
         await syncMcpServers(enabledProviders, resolved, allMissing, withProxy, dryRun);
       }
 
+      syncPermissions(enabledProviders, policy, dryRun);
+
       if (!mcpOnly) {
-        if (!noUpdateSkills) {
-          console.log(`\n${bold("── Skill Updates ───────────────────────────────────────────")}`);
-          await refreshSkills(agentsDir, dryRun);
-        }
-        await syncSkillsToProviders(enabledProviders, agentsDir, dryRun, !all);
+        await syncSkillPhase(enabledProviders, agentsDir, dryRun, all, noUpdateSkills);
       }
 
-      // Record sync event in audit log
-      try {
-        const auditStore = new AuditStore();
-        auditStore.init();
-        auditStore.recordSync({
-          providers: enabledProviders.map((p: Provider) => p.id),
-          servers: Object.keys(mcpConfig),
-          dryRun,
-        });
-      } catch { /* audit failures are non-fatal */ }
+      recordSyncAudit(enabledProviders, mcpConfig, dryRun);
 
       console.log();
       console.log(bold("── Summary ─────────────────────────────────────────────────"));
