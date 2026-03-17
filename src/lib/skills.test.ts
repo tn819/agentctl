@@ -132,12 +132,15 @@ describe("fetchAndCheckSkill", () => {
 
   test("returns null for a local git repo with no remote", () => {
     const dir = mkdtempSync("/tmp/vakt-fetch-test-");
-    spawnSync("git", ["init", dir]);
-    spawnSync("git", ["-C", dir, "config", "user.email", "test@test.com"]);
-    spawnSync("git", ["-C", dir, "config", "user.name", "Test"]);
+    // Clear GIT_DIR/GIT_WORK_TREE so these commands operate on `dir`,
+    // not the worktree that may be set in the hook environment.
+    const isolatedEnv = { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined };
+    spawnSync("git", ["init", dir], { env: isolatedEnv });
+    spawnSync("git", ["-C", dir, "config", "user.email", "test@test.com"], { env: isolatedEnv });
+    spawnSync("git", ["-C", dir, "config", "user.name", "Test"], { env: isolatedEnv });
     writeFileSync(join(dir, "README.md"), "test");
-    spawnSync("git", ["-C", dir, "add", "."]);
-    spawnSync("git", ["-C", dir, "commit", "-m", "init"]);
+    spawnSync("git", ["-C", dir, "add", "."], { env: isolatedEnv });
+    spawnSync("git", ["-C", dir, "commit", "-m", "init"], { env: isolatedEnv });
     // No remote configured — rev-list @{u} will fail → returns null
     expect(fetchAndCheckSkill(dir)).toBeNull();
     rmSync(dir, { recursive: true });

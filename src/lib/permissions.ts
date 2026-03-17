@@ -70,6 +70,18 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
+/** Build a permissions sub-object with explicit allow/deny keys (or without them if empty). */
+function buildPerms(
+  existing: ClaudeSettings["permissions"],
+  mergedAllow: string[],
+  mergedDeny: string[],
+): Record<string, unknown> {
+  const perms: Record<string, unknown> = { ...(existing ?? {}) };
+  if (mergedAllow.length > 0) perms["allow"] = mergedAllow; else delete perms["allow"];
+  if (mergedDeny.length  > 0) perms["deny"]  = mergedDeny;  else delete perms["deny"];
+  return perms;
+}
+
 // ── Claude settings adapter ───────────────────────────────────────────────────
 
 export class ClaudeSettingsAdapter implements PermissionsAdapter {
@@ -116,24 +128,23 @@ export class ClaudeSettingsAdapter implements PermissionsAdapter {
       (e) => !prevDenySet.has(e),
     );
 
-    // Merge: user-managed entries first, vakt-managed entries appended
+    // Build merged arrays: user-managed entries first, vakt-managed appended.
+    // Always assign explicitly so that clearing vakt entries removes them from the file.
+    // A conditional spread would leave old values from ...(settings.permissions ?? {}).
     const mergedAllow = [...existingAllow, ...allowStrings];
-    const mergedDeny = [...existingDeny, ...denyStrings];
+    const mergedDeny  = [...existingDeny,  ...denyStrings];
+
+    const perms = buildPerms(settings.permissions, mergedAllow, mergedDeny);
 
     const updated: ClaudeSettings = {
       ...settings,
-      permissions: {
-        ...(settings.permissions ?? {}),
-        ...(mergedAllow.length > 0 ? { allow: mergedAllow } : {}),
-        ...(mergedDeny.length > 0 ? { deny: mergedDeny } : {}),
-      },
       [VAKT_MARKER_KEY]: { allow: allowStrings, deny: denyStrings },
     };
-
-    // Remove empty permissions keys to keep the file clean
-    if ((updated.permissions?.allow?.length ?? 0) === 0) delete updated.permissions!.allow;
-    if ((updated.permissions?.deny?.length ?? 0) === 0) delete updated.permissions!.deny;
-    if (Object.keys(updated.permissions ?? {}).length === 0) delete updated.permissions;
+    if (Object.keys(perms).length > 0) {
+      updated.permissions = perms as ClaudeSettings["permissions"];
+    } else {
+      delete updated.permissions;
+    }
 
     // Remove marker when vakt has nothing to manage
     if (allowStrings.length === 0 && denyStrings.length === 0) {
