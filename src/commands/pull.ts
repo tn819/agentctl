@@ -32,8 +32,8 @@ async function fetchPolicyArtifact(remoteCfg: RemoteCfg, agentsDir: string, dryR
   const out = await fetchRemotePolicy(remoteCfg, agentsDir, remoteCfg.token);
   if (out) {
     result.fetched.push("policy");
-    if (!dryRun) ok("policy.json fetched → policy.remote.json");
-    else info("[dry-run] would fetch policy.json");
+    if (dryRun) info("[dry-run] would fetch policy.json");
+    else ok("policy.json fetched → policy.remote.json");
   } else {
     result.errors.push("policy.json");
     warn("could not fetch policy.json");
