@@ -125,11 +125,18 @@ export const AgentConfigSchema = z.object({
     enabled:  z.boolean().default(true),
   }).optional(),
   runtime: z.object({
-    default: z.enum(["local", "e2b"]).default("local"),
-    servers: z.record(z.string(), z.enum(["local", "e2b"])).optional(),
+    default: z.enum(["local", "e2b", "docker"]).default("local"),
+    servers: z.record(z.string(), z.enum(["local", "e2b", "docker"])).optional(),
     e2b: z.object({
       api_key:  z.string(),
       template: z.string().optional(),
+    }).optional(),
+    docker: z.object({
+      socket:  z.string().default("/var/run/docker.sock"),
+      image:   z.string().default("node:20-slim"),
+      memory:  z.string().optional(),
+      cpus:    z.string().optional(),
+      network: z.enum(["none", "bridge"]).default("none"),
     }).optional(),
   }).optional(),
   remote: RemoteConfigSchema.optional(),
