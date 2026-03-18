@@ -11,8 +11,8 @@
 
 [![CI](https://github.com/tn819/vakt/actions/workflows/ci.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/ci.yml)
 [![Tests](https://github.com/tn819/vakt/actions/workflows/test.yml/badge.svg)](https://github.com/tn819/vakt/actions/workflows/test.yml)
-[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=tn819_vakt&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=tn819_vakt)
-[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tn819_vakt&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tn819_vakt)
+[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=tn819_agentctl&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=tn819_agentctl)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=tn819_agentctl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=tn819_agentctl)
 [![Release](https://img.shields.io/github/v/release/tn819/vakt?label=release&color=22c55e)](https://github.com/tn819/vakt/releases)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/runtime-Bun-fbf0df?logo=bun&logoColor=black)](https://bun.sh/)
@@ -35,6 +35,35 @@ Your AI coding tools write API keys into plaintext JSON files. Those files sync 
 **vakt** fixes this. One `~/.agents/` directory holds your entire MCP setup with no credential values inside. Secrets resolve from your OS keychain at sync time. `vakt sync` writes correct config to every installed tool instantly. A policy engine enforces what each MCP server is allowed to do before any tool call goes through.
 
 Configure once. Sync everywhere. Rotate a key in one place. Audit everything.
+
+---
+
+## Install
+
+**macOS / Linux via Homebrew (recommended):**
+```bash
+brew tap tn819/vakt https://github.com/tn819/vakt
+brew install vakt
+```
+
+**One-line installer:**
+```bash
+# Install (download a single binary from GitHub releases)
+curl -fsSL https://github.com/tn819/vakt/releases/latest/download/vakt -o /usr/local/bin/vakt
+chmod +x /usr/local/bin/vakt
+
+# Or run from source
+git clone https://github.com/tn819/vakt
+cd vakt && bun install
+export PATH="$PATH:$(pwd)/src"
+
+vakt init                             # scaffold ~/.agents/
+vakt import-from-everywhere           # pull in your existing provider configs
+vakt secrets set GITHUB_TOKEN ghp_... # store in keychain, not in a file
+vakt sync                             # write to every installed CLI
+```
+
+---
 
 ### How vakt compares
 
@@ -62,6 +91,24 @@ Configure once. Sync everywhere. Rotate a key in one place. Audit everything.
 **Runtime DLP:** [crust](https://github.com/BakeLens/crust) (MCP traffic scanning, 34 built-in patterns)
 
 **Sandboxes:** E2B (built-in) · Daytona · microsandbox · Kata Containers
+
+---
+
+## Contents
+
+- [What vakt unlocks end-to-end](#what-vakt-unlocks-end-to-end)
+- [Three principles](#three-principles)
+- [Why this exists](#why-this-exists)
+- [Security in depth](#-security-in-depth)
+- [Standardization in depth](#-standardization-in-depth)
+- [Policy engine](#-policy-engine)
+- [MCP Registry](#-mcp-registry)
+- [Interoperability in depth](#-interoperability-in-depth)
+- [Commands](#commands)
+- [Supported providers](#supported-providers)
+- [Directory structure](#directory-structure)
+- [Skills](#skills)
+- [Testing](#testing)
 
 ---
 
@@ -239,33 +286,6 @@ vakt config set otel.enabled true
 | [Axiom](https://axiom.co) | SaaS | `https://api.axiom.co` |
 
 Traces are emitted lazily — the OTel SDK is never loaded if no endpoint is configured.
-
----
-
-## Get started
-
-**macOS / Linux via Homebrew (recommended):**
-```bash
-brew tap tn819/vakt https://github.com/tn819/vakt
-brew install vakt
-```
-
-**One-line installer:**
-```bash
-# Install (download a single binary from GitHub releases)
-curl -fsSL https://github.com/tn819/vakt/releases/latest/download/vakt -o /usr/local/bin/vakt
-chmod +x /usr/local/bin/vakt
-
-# Or run from source
-git clone https://github.com/tn819/vakt
-cd vakt && bun install
-export PATH="$PATH:$(pwd)/src"
-
-vakt init                             # scaffold ~/.agents/
-vakt import-from-everywhere           # pull in your existing provider configs
-vakt secrets set GITHUB_TOKEN ghp_... # store in keychain, not in a file
-vakt sync                             # write to every installed CLI
-```
 
 ---
 
