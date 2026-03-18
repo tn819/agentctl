@@ -10,7 +10,7 @@ function pushMock(body: unknown, ok = true, status = 200) {
 
 beforeEach(() => {
   mockResponses.length = 0;
-  globalThis.fetch = mock(async (_url: string, _opts?: RequestInit) => {
+  (globalThis as any).fetch = mock(async (_url: string, _opts?: RequestInit) => {
     const resp = mockResponses.shift();
     if (!resp) throw new Error("Unexpected fetch call");
     return {
@@ -60,7 +60,7 @@ describe("DockerSandboxProvider", () => {
     new DataView(frame.buffer).setUint32(4, 5, false);
     frame.set(new TextEncoder().encode("hello"), 8);
 
-    globalThis.fetch = mock(async (url: string) => {
+    (globalThis as any).fetch = mock(async (url: string) => {
       if ((url as string).includes("/exec/") && (url as string).includes("/start")) {
         return { ok: true, status: 200, arrayBuffer: async () => frame.buffer, json: async () => ({}), text: async () => "" } as unknown as Response;
       }
