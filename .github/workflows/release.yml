@@ -135,6 +135,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
+          set -euo pipefail
           gh release download "v${VERSION}" --pattern "checksums-darwin.txt" --pattern "checksums.txt" --dir /tmp/checksums
 
           SHA_DARWIN_ARM64=$(grep "darwin-arm64" /tmp/checksums/checksums-darwin.txt | awk '{print $1}')
@@ -151,14 +152,13 @@ jobs:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git clone https://x-access-token:${GH_TOKEN}@github.com/tn819/homebrew-vakt.git /tmp/homebrew-vakt
           mkdir -p /tmp/homebrew-vakt/Formula
           cp Formula/vakt.rb /tmp/homebrew-vakt/Formula/vakt.rb
 
           cd /tmp/homebrew-vakt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/vakt.rb
           git commit -m "vakt ${VERSION}"
           git push
