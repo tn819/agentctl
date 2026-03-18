@@ -7,10 +7,9 @@ export function registerDaemon(program: Command): void {
   const daemon = program.command("daemon").description("Manage the vakt daemon process");
 
   // Hidden subcommand used for self-exec in both dev and compiled mode.
-  const runCmd = daemon.command("_run").action(async () => {
+  daemon.command("_run", { hidden: true }).action(async () => {
     await runDaemon();
   });
-  runCmd._hidden = true;
 
   daemon.command("start").description("Start the daemon").action(async () => {
     if (existsSync(PID_PATH)) {
@@ -20,8 +19,9 @@ export function registerDaemon(program: Command): void {
     // In compiled mode Bun.main is "/$bunfs/…"; use argv[0] (the binary itself).
     // In dev mode Bun.main is the real source path; use bun + that path.
     const isBundled = Bun.main.startsWith("/$bunfs");
+    const self = process.argv[0] ?? process.execPath;
     const cmd: string[] = isBundled
-      ? [process.argv[0], "daemon", "_run"]
+      ? [self, "daemon", "_run"]
       : ["bun", Bun.main, "daemon", "_run"];
     const proc = Bun.spawn(cmd, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
     proc.unref();

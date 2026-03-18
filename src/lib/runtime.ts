@@ -6,5 +6,5 @@ export function getRuntimeForServer(name: string, config: AgentConfig): RuntimeB
   return (config.runtime?.servers?.[name] ?? config.runtime?.default ?? "local") as RuntimeBackend;
 }
 
-// TODO: wire resolvedE2BApiKey / startServerInE2B / stopSandbox into commands/runtime.ts
-// when the E2B cloud sandbox execution path is implemented.
+// E2B cloud sandbox helpers (resolvedE2BApiKey, startServerInE2B, stopSandbox)
+// are pending implementation in commands/runtime.ts (feat/e2b-sandbox).
