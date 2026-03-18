@@ -79,7 +79,7 @@ teardown() {
   vakt init
   echo "modified" > "$AGENTS_DIR/config.json"
   
-  run vakt init <<< "y"
+  run vakt init <<< "o"
   
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" '"paths"'

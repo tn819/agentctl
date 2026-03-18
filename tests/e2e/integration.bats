@@ -182,7 +182,7 @@ teardown() {
   vakt config set paths.code "~/First"
   
   # Re-init with overwrite
-  run vakt init <<< "y"
+  run vakt init <<< "o"
   [ "$status" -eq 0 ]
   
   # Should be back to defaults
