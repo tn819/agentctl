@@ -1,6 +1,6 @@
 {
   "name": "@vakt/cli",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Secure MCP runtime — unified config, policy enforcement, audit logging, registry verification",
   "bin": {
     "vakt": "./src/index.ts"
