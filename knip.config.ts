@@ -9,9 +9,6 @@ const config: KnipConfig = {
   ignoreBinaries: [
     "bats", // system test runner, not a package
   ],
-  ignore: [
-    "src/lib/verify.ts", // pending feat/wire-verify-supply-chain
-  ],
   // GitHub Actions plugin fails to parse multiline YAML strings in release.yml
   "github-actions": false,
 
