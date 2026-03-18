@@ -246,7 +246,7 @@ Traces are emitted lazily — the OTel SDK is never loaded if no endpoint is con
 
 **macOS / Linux via Homebrew (recommended):**
 ```bash
-brew tap tn819/vakt
+brew tap tn819/vakt https://github.com/tn819/vakt
 brew install vakt
 ```
 

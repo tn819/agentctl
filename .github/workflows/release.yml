@@ -129,6 +129,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: v${{ needs.release.outputs.version }}
+          # Need write access to push the updated formula back to this repo
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute SHAs and update formula
         env:
@@ -147,18 +149,12 @@ jobs:
             -e "s/VAKT_SHA256_LINUX_X86_64/${SHA_LINUX_X86_64}/" \
             Formula/vakt.rb
 
-      - name: Push updated formula to homebrew-vakt tap
+      - name: Commit updated formula to main repo
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
-          git clone https://x-access-token:${GH_TOKEN}@github.com/tn819/homebrew-vakt.git /tmp/homebrew-vakt
-          mkdir -p /tmp/homebrew-vakt/Formula
-          cp Formula/vakt.rb /tmp/homebrew-vakt/Formula/vakt.rb
-
-          cd /tmp/homebrew-vakt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/vakt.rb
-          git commit -m "vakt ${VERSION}"
-          git push
+          git commit -m "chore(release): update homebrew formula to ${VERSION} [skip ci]"
+          git push origin HEAD:main
