@@ -65,6 +65,28 @@ export default [
       // warn (not error) so pre-existing `any` in daemon/proxy doesn't block commits
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+
+      // ── Bun compiled-binary safety ────────────────────────────────────────
+      // import.meta.dir and import.meta.url → .pathname resolve to /$bunfs/…
+      // paths in a compiled Bun binary and cannot be used to read bundled files
+      // at runtime. Use static `import` for bundled assets instead.
+      "no-restricted-syntax": [
+        "error",
+        {
+          // import.meta.dir
+          selector:
+            "MemberExpression[object.type='MetaProperty'][object.meta.name='import'][object.property.name='meta'][property.name='dir']",
+          message:
+            "import.meta.dir is '/$bunfs/root' in compiled Bun binaries. Use a static import for bundled assets.",
+        },
+        {
+          // new URL("...", import.meta.url).pathname — file-path-from-source pattern
+          selector:
+            "MemberExpression[property.name='pathname'][object.type='NewExpression'][object.callee.name='URL'] > NewExpression > MemberExpression[object.type='MetaProperty'][object.meta.name='import'][object.property.name='meta'][property.name='url']",
+          message:
+            "new URL(..., import.meta.url).pathname resolves into /$bunfs in compiled Bun binaries. Use a static import for bundled assets or Bun.main for self-exec paths.",
+        },
+      ],
     },
   },
 ];

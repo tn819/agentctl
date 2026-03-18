@@ -20,4 +20,7 @@ if [ -n "$STAGED_TS" ]; then
 fi
 
 # Fast unit tests (~40ms)
-bun test src/
+bun test src/ || exit 1
+
+# Dead code / unused dep check
+bun run knip || exit 1
