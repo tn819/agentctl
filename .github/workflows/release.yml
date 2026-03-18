@@ -146,8 +146,8 @@ jobs:
           set -euo pipefail
           gh release download "v${VERSION}" --pattern "checksums-darwin.txt" --pattern "checksums.txt" --dir /tmp/checksums
 
-          SHA_DARWIN_ARM64=$(grep "darwin-arm64" /tmp/checksums/checksums-darwin.txt | awk '{print $1}')
-          SHA_LINUX_X86_64=$(grep "linux-x86_64" /tmp/checksums/checksums.txt | awk '{print $1}')
+          export SHA_DARWIN_ARM64=$(grep "darwin-arm64" /tmp/checksums/checksums-darwin.txt | awk '{print $1}')
+          export SHA_LINUX_X86_64=$(grep "linux-x86_64" /tmp/checksums/checksums.txt | awk '{print $1}')
 
           python3 scripts/update-formula.py
 
