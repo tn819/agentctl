@@ -70,13 +70,16 @@ export function registerInit(program: Command): void {
 
       let overwrite = false;
       if (existsSync(configPath) && !dryRun) {
-        process.stdout.write(`  ${yellow("⚠")}  ${AGENTS_DIR} already exists. Overwrite? [y/N] `);
+        process.stdout.write(`  ${yellow("⚠")}  ${AGENTS_DIR} already exists. [M]erge (keep existing, add missing) / [o]verwrite / [N]abort? `);
         const answer = readStdinLine();
-        if (answer !== "y" && answer !== "yes") {
+        if (answer === "o" || answer === "overwrite") {
+          overwrite = true;
+        } else if (answer === "m" || answer === "merge" || answer === "") {
+          // merge: only create missing files, keep existing ones
+        } else {
           console.log("\nAborted.");
           process.exit(1);
         }
-        overwrite = true;
       }
 
       const items: [string, () => void][] = [
