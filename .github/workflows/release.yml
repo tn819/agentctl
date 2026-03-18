@@ -120,3 +120,45 @@ jobs:
           gh release upload "v${VERSION}" \
             "vakt-${VERSION}-darwin-arm64.tar.gz" \
             "checksums-darwin.txt"
+
+  release-homebrew:
+    runs-on: ubuntu-latest
+    needs: [release, release-macos]
+    if: needs.release.outputs.released == 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: v${{ needs.release.outputs.version }}
+
+      - name: Compute SHAs and update formula
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          gh release download "v${VERSION}" --pattern "checksums-darwin.txt" --pattern "checksums.txt" --dir /tmp/checksums
+
+          SHA_DARWIN_ARM64=$(grep "darwin-arm64" /tmp/checksums/checksums-darwin.txt | awk '{print $1}')
+          SHA_LINUX_X86_64=$(grep "linux-x86_64" /tmp/checksums/checksums.txt | awk '{print $1}')
+
+          sed -i \
+            -e "s/VAKT_VERSION/${VERSION}/g" \
+            -e "s/VAKT_SHA256_DARWIN_ARM64/${SHA_DARWIN_ARM64}/" \
+            -e "s/VAKT_SHA256_LINUX_X86_64/${SHA_LINUX_X86_64}/" \
+            Formula/vakt.rb
+
+      - name: Push updated formula to homebrew-vakt tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git clone https://x-access-token:${GH_TOKEN}@github.com/tn819/homebrew-vakt.git /tmp/homebrew-vakt
+          mkdir -p /tmp/homebrew-vakt/Formula
+          cp Formula/vakt.rb /tmp/homebrew-vakt/Formula/vakt.rb
+
+          cd /tmp/homebrew-vakt
+          git add Formula/vakt.rb
+          git commit -m "vakt ${VERSION}"
+          git push
