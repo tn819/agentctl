@@ -97,7 +97,7 @@ export class DockerSandboxProvider implements SandboxProvider {
         Binds:       opts.repo ? [`${opts.repo}:/workspace:rw`] : [],
         NetworkMode: opts.network ?? this.defaultNetwork,
         ...(this.memory ? { Memory: parseMem(this.memory) } : {}),
-        ...(this.cpus   ? { NanoCpus: Math.round(parseFloat(this.cpus) * 1e9) } : {}),
+        ...(this.cpus   ? { NanoCpus: Math.round(Number.parseFloat(this.cpus) * 1e9) } : {}),
       },
     };
     if (opts.name) body["Name"] = opts.name;
@@ -178,15 +178,15 @@ export class DockerSandboxProvider implements SandboxProvider {
 
   // Swarm extension stub — see #73
   async createMany(opts: SandboxCreateOpts[]): Promise<SandboxHandle[]> {
-    // TODO(#73): optimise with backend bulk API if available
+    // NOTE: parallel create — bulk API optimisation tracked in issue #73
     return Promise.all(opts.map(o => this.create(o)));
   }
 }
 
 function parseMem(mem: string): number {
-  const m = mem.match(/^(\d+(?:\.\d+)?)(m|g|k)?$/i);
+  const m = /^(\d+(?:\.\d+)?)(m|g|k)?$/i.exec(mem);
   if (!m) throw new Error(`Invalid memory spec: ${mem}`);
-  const n = parseFloat(m[1]!);
+  const n = Number.parseFloat(m[1]!);
   switch (m[2]?.toLowerCase()) {
     case "g": return Math.round(n * 1024 * 1024 * 1024);
     case "m": return Math.round(n * 1024 * 1024);
