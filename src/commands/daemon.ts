@@ -1,19 +1,29 @@
 import type { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { PID_PATH, sendToDaemon } from "../daemon/ipc";
+import { runDaemon } from "../daemon/index";
 
 export function registerDaemon(program: Command): void {
   const daemon = program.command("daemon").description("Manage the vakt daemon process");
+
+  // Hidden subcommand used for self-exec in both dev and compiled mode.
+  daemon.command("_run", { hidden: true }).action(async () => {
+    await runDaemon();
+  });
 
   daemon.command("start").description("Start the daemon").action(async () => {
     if (existsSync(PID_PATH)) {
       console.log(`Daemon already running (pid ${readFileSync(PID_PATH, "utf-8").trim()})`);
       return;
     }
-    const proc = Bun.spawn(
-      ["bun", new URL("../daemon/index.ts", import.meta.url).pathname],
-      { detached: true, stdio: ["ignore", "ignore", "ignore"] }
-    );
+    // In compiled mode Bun.main is "/$bunfs/…"; use argv[0] (the binary itself).
+    // In dev mode Bun.main is the real source path; use bun + that path.
+    const isBundled = Bun.main.startsWith("/$bunfs");
+    const self = process.argv[0] ?? process.execPath;
+    const cmd: string[] = isBundled
+      ? [self, "daemon", "_run"]
+      : ["bun", Bun.main, "daemon", "_run"];
+    const proc = Bun.spawn(cmd, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
     proc.unref();
     await Bun.sleep(400);
     console.log("✓ vakt daemon started");

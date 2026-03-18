@@ -76,7 +76,6 @@ export const RawProviderServerSchema = z
   })
   .passthrough();
 
-export type RawProviderServer = z.infer<typeof RawProviderServerSchema>;
 
 // ── Remote config ─────────────────────────────────────────────────────────────
 
@@ -109,9 +108,7 @@ export const SkillsIndexSchema = z.object({
   skills: z.array(SkillsIndexEntrySchema),
 });
 
-export type SkillsRegistryConfig = z.infer<typeof SkillsRegistryConfigSchema>;
 export type SkillsIndexEntry = z.infer<typeof SkillsIndexEntrySchema>;
-export type SkillsIndex = z.infer<typeof SkillsIndexSchema>;
 
 // ── Agent config ─────────────────────────────────────────────────────────────
 
@@ -230,7 +227,6 @@ export type Providers = z.infer<typeof ProvidersSchema>;
 // ── Policy ───────────────────────────────────────────────────────────────────
 
 export type PolicyResult = "allow" | "deny" | "ask";
-export type RegistryPolicy = "allow-unverified" | "warn-unverified" | "registry-only";
 
 /**
  * Canonical list of Claude Code built-in tool names.
@@ -256,7 +252,6 @@ export const KNOWN_TOOLS = [
   "Write",
 ] as const;
 
-export type KnownTool = typeof KNOWN_TOOLS[number];
 
 /**
  * A permission rule entry in the format `ToolName` or `ToolName(specifier)`.

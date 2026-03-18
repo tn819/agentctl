@@ -85,7 +85,9 @@ File I/O uses `exec` with base64 encoding to avoid a tar dependency: `writeFile`
 `printf '%s' BASE64 | base64 -d > PATH`; `readFile` runs `base64 PATH` and decodes stdout.
 
 `list()` is implemented using Docker label filters. `createMany()` is a TODO stub that falls back
-to `Promise.all(opts.map(o => this.create(o)))`.
+to `Promise.all(opts.map(o => this.create(o)))`. Bulk-create optimisation is deferred until the
+orchestration layer (#73) is implemented — at that point, backends that support batch provisioning
+(e.g. Docker Swarm services, E2B batch API) can override the default with an efficient implementation.
 
 ### Config schema
 
@@ -107,6 +109,21 @@ is stable, well-documented, and accessible with Bun's built-in fetch over Unix s
 
 Simpler to implement but provides no meaningful security isolation — bash still runs on the host
 filesystem. Ruled out.
+
+### Docker archive API (`PUT /containers/{id}/archive`) for file I/O
+
+Docker exposes a tar-based archive endpoint that transfers files without an exec round-trip. More
+efficient for large files but requires a tar implementation in Bun (no stdlib tar, no native
+dependency without adding one). The base64+exec approach is simpler and correct for the typical
+sizes vakt transfers (source files, SKILL.md, config snippets); the archive API remains the
+preferred migration target if large-file transfers become a bottleneck.
+
+### Shared bind-mount for file I/O
+
+Mount a host directory into the container at `/workspace`; reads and writes happen directly on the
+host filesystem with no exec overhead. Used for the repo mount (`repo` field in `SandboxCreateOpts`)
+but not suitable as the general file I/O mechanism — `writeFile`/`readFile` must work for arbitrary
+in-container paths that are not part of the workspace mount (e.g. `/etc`, `/tmp/results`).
 
 ## Consequences
 

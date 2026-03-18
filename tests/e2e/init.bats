@@ -78,11 +78,46 @@ teardown() {
 @test "init can overwrite existing directory when confirmed" {
   vakt init
   echo "modified" > "$AGENTS_DIR/config.json"
-  
-  run vakt init <<< "y"
-  
+
+  run vakt init <<< "o"
+
   [ "$status" -eq 0 ]
   assert_file_contains "$AGENTS_DIR/config.json" '"paths"'
+}
+
+@test "init merge keeps existing files unchanged" {
+  vakt init
+  echo "modified" > "$AGENTS_DIR/config.json"
+
+  run vakt init <<< "m"
+
+  [ "$status" -eq 0 ]
+  # existing file must not be overwritten
+  [[ "$(cat "$AGENTS_DIR/config.json")" == "modified" ]]
+}
+
+@test "init merge with empty input (default) keeps existing files" {
+  vakt init
+  echo "modified" > "$AGENTS_DIR/config.json"
+
+  run vakt init <<< ""
+
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$AGENTS_DIR/config.json")" == "modified" ]]
+}
+
+@test "init merge creates missing files without touching existing ones" {
+  vakt init
+  rm "$AGENTS_DIR/AGENTS.md"
+  echo "modified" > "$AGENTS_DIR/config.json"
+
+  run vakt init <<< "m"
+
+  [ "$status" -eq 0 ]
+  # missing file restored
+  assert_file_exists "$AGENTS_DIR/AGENTS.md"
+  # existing file untouched
+  [[ "$(cat "$AGENTS_DIR/config.json")" == "modified" ]]
 }
 
 @test "init AGENTS.md has correct content" {
