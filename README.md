@@ -114,7 +114,7 @@ vakt sync                             # write to every installed CLI
 
 ## What vakt unlocks end-to-end
 
-vakt is a complete runtime layer for MCP — not just a config manager. Here is the full deployment picture:
+vakt is a complete runtime layer for agentic CLIs encompassing the whole ecosystem from credentials, MCP, auditability, and skills — not just a config manager. Here is the full deployment picture:
 
 ```
                       ┌─────────────────────────────────────────────┐
