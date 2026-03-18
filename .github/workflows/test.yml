@@ -26,6 +26,14 @@ jobs:
           export AGENTS_SECRETS_BACKEND=env
           bats tests/e2e/
 
+      - name: Build binary (smoke test prerequisite)
+        run: bun build src/index.ts --compile --outfile dist/vakt
+
+      - name: Run binary smoke tests
+        run: |
+          export AGENTS_SECRETS_BACKEND=env
+          bats tests/e2e/binary.bats
+
       - name: Test CLI commands
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
@@ -68,6 +76,14 @@ jobs:
           export PATH="$PWD/src:$HOME/.bun/bin:$PATH"
           export AGENTS_SECRETS_BACKEND=env
           bats tests/e2e/
+
+      - name: Build binary (smoke test prerequisite)
+        run: bun build src/index.ts --compile --outfile dist/vakt
+
+      - name: Run binary smoke tests
+        run: |
+          export AGENTS_SECRETS_BACKEND=env
+          bats tests/e2e/binary.bats
 
       - name: Test CLI commands
         run: |

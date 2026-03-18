@@ -50,6 +50,8 @@ jobs:
           export AGENTS_SECRETS_BACKEND=env
           bun test src/
           bats tests/e2e/
+          bun build src/index.ts --compile --outfile dist/vakt
+          bats tests/e2e/binary.bats
 
       - name: Capture tag before release
         id: before-release
