@@ -28,6 +28,12 @@ jobs:
             python3 -m json.tool "$file" > /dev/null || (echo "Invalid JSON: $file" && exit 1)
           done
 
+      - name: Validate workflow YAML
+        run: |
+          for file in $(find .github/workflows -name "*.yml" -type f); do
+            python3 -c "import yaml, sys; yaml.safe_load(open('$file'))" || (echo "Invalid YAML: $file" && exit 1)
+          done
+
       - name: Validate shell scripts syntax
         run: |
           for file in $(find . -name "*.sh" -not -path "*/node_modules/*" -type f); do
