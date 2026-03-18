@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import providersRaw from "../providers.json";
 import {
   AgentConfigSchema, McpConfigSchema, ProvidersSchema, PLATFORMS,
   type AgentConfig, type McpConfig, type Providers, type Provider, type PlatformKey,
@@ -20,10 +21,8 @@ export function loadMcpConfig(): McpConfig {
 }
 
 export function loadProviders(): Providers {
-  const path = join(import.meta.dir, "..", "providers.json");
-  const raw = JSON.parse(readFileSync(path, "utf-8"));
   const filtered = Object.fromEntries(
-    Object.entries(raw).filter(([k]) => !k.startsWith("$") && !k.startsWith("_"))
+    Object.entries(providersRaw).filter(([k]) => !k.startsWith("$") && !k.startsWith("_"))
   );
   return ProvidersSchema.parse(filtered);
 }
