@@ -7,6 +7,18 @@ export function defaultAuditDbPath(): string {
   return join(AGENTS_DIR, "audit.db");
 }
 
+export interface SandboxSession {
+  id: string;
+  provider: string;
+  container_id: string;
+  image: string | null;
+  repo: string | null;
+  name: string | null;
+  status: string;
+  created_at: number;
+  closed_at: number | null;
+}
+
 export interface ToolCallRecord {
   sessionId: string;
   serverName: string;
@@ -124,21 +136,21 @@ export class AuditStore {
     return id;
   }
 
-  getSession(id: string): any | null {
+  getSession(id: string): SandboxSession | null {
     return this.db.prepare(
       "SELECT * FROM sandbox_sessions WHERE id = ?"
-    ).get(id) as any ?? null;
+    ).get(id) as SandboxSession | null;
   }
 
-  listSessions(opts: { status?: string } = {}): any[] {
+  listSessions(opts: { status?: string } = {}): SandboxSession[] {
     if (opts.status) {
       return this.db.prepare(
         "SELECT * FROM sandbox_sessions WHERE status = ? ORDER BY created_at DESC"
-      ).all(opts.status) as any[];
+      ).all(opts.status) as SandboxSession[];
     }
     return this.db.prepare(
       "SELECT * FROM sandbox_sessions ORDER BY created_at DESC"
-    ).all() as any[];
+    ).all() as SandboxSession[];
   }
 
   closeSession(id: string): void {
