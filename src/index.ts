@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
+import { version } from "../package.json";
 import { registerConfig } from "./commands/config";
 import { registerAddServer } from "./commands/add-server";
 import { registerAddSkill } from "./commands/add-skill";
@@ -23,7 +24,7 @@ const program = new Command();
 program
   .name("vakt")
   .description("Secure MCP runtime — policy, audit, registry, multi-provider sync")
-  .version("0.1.0");
+  .version(version);
 
 registerConfig(program);
 registerAddServer(program);
