@@ -33,6 +33,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch all tags
+        run: git fetch --tags --force
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461 # v2
 
