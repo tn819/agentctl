@@ -244,6 +244,13 @@ Traces are emitted lazily — the OTel SDK is never loaded if no endpoint is con
 
 ## Get started
 
+**macOS / Linux via Homebrew (recommended):**
+```bash
+brew tap tn819/vakt https://github.com/tn819/vakt
+brew install vakt
+```
+
+**One-line installer:**
 ```bash
 # Install (download a single binary from GitHub releases)
 curl -fsSL https://github.com/tn819/vakt/releases/latest/download/vakt -o /usr/local/bin/vakt
