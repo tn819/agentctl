@@ -128,8 +128,11 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: v${{ needs.release.outputs.version }}
-          # Need write access to push the updated formula back to this repo
+          # Check out main (not the tag) so our commit is based on the current
+          # branch tip; pushing directly to protected main requires status checks
+          # to have already passed on the parent commit.
+          ref: main
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute SHAs and update formula
@@ -149,12 +152,28 @@ jobs:
             -e "s/VAKT_SHA256_LINUX_X86_64/${SHA_LINUX_X86_64}/" \
             Formula/vakt.rb
 
-      - name: Commit updated formula to main repo
+      - name: Open PR for formula update
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
+          set -euo pipefail
+          BRANCH="chore/formula-${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           git add Formula/vakt.rb
           git commit -m "chore(release): update homebrew formula to ${VERSION} [skip ci]"
-          git push origin HEAD:main
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore(release): update homebrew formula to ${VERSION}" \
+            --body "Automated formula update for release v${VERSION}.
+
+Updates \`Formula/vakt.rb\` with the correct version and SHA-256 checksums for the published binaries.
+
+_This PR was opened automatically by the release workflow._" \
+            --base main \
+            --head "$BRANCH"
+          # Auto-merge requires 'Allow auto-merge' to be enabled in repo settings
+          # (Settings → General → Pull Requests → Allow auto-merge).
+          gh pr merge "$BRANCH" --squash --auto --delete-branch
