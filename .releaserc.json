@@ -68,6 +68,8 @@
   "prepare": [
     {
       "path": "@semantic-release/exec",
+      "_comment": "Pre-1.0 policy: no major releases until explicitly decided. breaking changes bump minor, not major.",
+      "verifyRelease": "node -e \"const [major] = '${nextRelease.version}'.split('.'); if (Number(major) >= 1) { process.stderr.write('Pre-1.0 policy violation: ' + '${nextRelease.version}' + ' >= 1.0.0. Update .releaserc.json releaseRules intentionally to allow this.\\n'); process.exit(1); }\"",
       "cmd": "bun build src/index.ts --compile --outfile dist/vakt && tar -czf /tmp/vakt-${nextRelease.version}-linux-x86_64.tar.gz -C dist vakt && mv /tmp/vakt-${nextRelease.version}-linux-x86_64.tar.gz . && sha256sum vakt-${nextRelease.version}-linux-x86_64.tar.gz dist/vakt > checksums.txt"
     }
   ]
