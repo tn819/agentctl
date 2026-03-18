@@ -10,7 +10,7 @@ load '../test_helper'
 setup() {
   setup_test_env
   mock_secrets_backend
-  agentctl init
+  vakt init
 }
 
 teardown() {
@@ -20,44 +20,44 @@ teardown() {
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 @test "runtime config: set docker as default backend" {
-  run agentctl config set runtime.default docker
+  run vakt config set runtime.default docker
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.default
+  run vakt config get runtime.default
   [ "$output" = "docker" ]
 }
 
 @test "runtime config: set docker socket path" {
-  run agentctl config set runtime.docker.socket /var/run/docker.sock
+  run vakt config set runtime.docker.socket /var/run/docker.sock
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.docker.socket
+  run vakt config get runtime.docker.socket
   [ "$output" = "/var/run/docker.sock" ]
 }
 
 @test "runtime config: set docker image" {
-  run agentctl config set runtime.docker.image node:20-slim
+  run vakt config set runtime.docker.image node:20-slim
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.docker.image
+  run vakt config get runtime.docker.image
   [ "$output" = "node:20-slim" ]
 }
 
 @test "runtime config: set memory limit" {
-  run agentctl config set runtime.docker.memory 512m
+  run vakt config set runtime.docker.memory 512m
   [ "$status" -eq 0 ]
 
-  run agentctl config get runtime.docker.memory
+  run vakt config get runtime.docker.memory
   [ "$output" = "512m" ]
 }
 
 @test "runtime config: route specific server to docker" {
-  agentctl add-server my-coder npx some-mcp-server
+  vakt add-server my-coder npx some-mcp-server
 
-  run agentctl runtime set my-coder docker
+  run vakt runtime set my-coder docker
   [ "$status" -eq 0 ]
 
-  run agentctl runtime list
+  run vakt runtime list
   [ "$status" -eq 0 ]
   [[ "$output" == *"my-coder"* ]]
   [[ "$output" == *"docker"* ]]
@@ -77,7 +77,7 @@ teardown() {
 @test "agent start: creates Docker container and returns session id" {
   skip_if_missing docker
 
-  run agentctl agent start --provider docker
+  run vakt agent start --provider docker
   [ "$status" -eq 0 ]
   [[ "$output" == *"session"* ]] || [[ "$output" == *"container"* ]]
 }
@@ -86,65 +86,65 @@ teardown() {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
+  session_id=$(vakt agent start --provider docker --format id)
 
-  run agentctl agent exec "$session_id" "node --version"
+  run vakt agent exec "$session_id" "node --version"
   [ "$status" -eq 0 ]
   [[ "$output" == v* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent write-file: writes file into container workspace" {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
+  session_id=$(vakt agent start --provider docker --format id)
 
-  agentctl agent write-file "$session_id" /workspace/hello.txt "hello from vakt"
+  vakt agent write-file "$session_id" /workspace/hello.txt "hello from vakt"
 
-  run agentctl agent exec "$session_id" "cat /workspace/hello.txt"
+  run vakt agent exec "$session_id" "cat /workspace/hello.txt"
   [ "$status" -eq 0 ]
   [[ "$output" == *"hello from vakt"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent read-file: reads file from container workspace" {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
-  agentctl agent exec "$session_id" "sh -c 'echo vakt-content > /workspace/out.txt'"
+  session_id=$(vakt agent start --provider docker --format id)
+  vakt agent exec "$session_id" "sh -c 'echo vakt-content > /workspace/out.txt'"
 
-  run agentctl agent read-file "$session_id" /workspace/out.txt
+  run vakt agent read-file "$session_id" /workspace/out.txt
   [ "$status" -eq 0 ]
   [[ "$output" == *"vakt-content"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent audit: Docker tool calls recorded in audit.db" {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
-  agentctl agent exec "$session_id" "echo audit-test"
+  session_id=$(vakt agent start --provider docker --format id)
+  vakt agent exec "$session_id" "echo audit-test"
 
-  run agentctl audit show
+  run vakt audit show
   [ "$status" -eq 0 ]
   [[ "$output" == *"docker"* ]]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
 
 @test "agent destroy: container is removed after session ends" {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
+  session_id=$(vakt agent start --provider docker --format id)
 
-  run agentctl agent destroy "$session_id"
+  run vakt agent destroy "$session_id"
   [ "$status" -eq 0 ]
 
   # Container should no longer exist
@@ -156,11 +156,11 @@ teardown() {
   skip_if_missing docker
 
   local session_id
-  session_id=$(agentctl agent start --provider docker --format id)
+  session_id=$(vakt agent start --provider docker --format id)
 
   # Default network=none — outbound should fail
-  run agentctl agent exec "$session_id" "curl --max-time 2 https://example.com"
+  run vakt agent exec "$session_id" "curl --max-time 2 https://example.com"
   [ "$status" -ne 0 ]
 
-  agentctl agent destroy "$session_id"
+  vakt agent destroy "$session_id"
 }
