@@ -149,11 +149,7 @@ jobs:
           SHA_DARWIN_ARM64=$(grep "darwin-arm64" /tmp/checksums/checksums-darwin.txt | awk '{print $1}')
           SHA_LINUX_X86_64=$(grep "linux-x86_64" /tmp/checksums/checksums.txt | awk '{print $1}')
 
-          sed -i \
-            -e "s/VAKT_VERSION/${VERSION}/g" \
-            -e "s/VAKT_SHA256_DARWIN_ARM64/${SHA_DARWIN_ARM64}/" \
-            -e "s/VAKT_SHA256_LINUX_X86_64/${SHA_LINUX_X86_64}/" \
-            Formula/vakt.rb
+          python3 scripts/update-formula.py
 
       - name: Open PR for formula update
         env:
@@ -168,13 +164,10 @@ jobs:
           git add Formula/vakt.rb
           git commit -m "chore(release): update homebrew formula to ${VERSION} [skip ci]"
           git push origin "$BRANCH"
+          BODY="Automated formula update for release v${VERSION}.\n\nUpdates \`Formula/vakt.rb\` with the correct version and SHA-256 checksums for the published binaries.\n\n_This PR was opened automatically by the release workflow._"
           gh pr create \
             --title "chore(release): update homebrew formula to ${VERSION}" \
-            --body "Automated formula update for release v${VERSION}.
-
-Updates \`Formula/vakt.rb\` with the correct version and SHA-256 checksums for the published binaries.
-
-_This PR was opened automatically by the release workflow._" \
+            --body "$(printf '%b' "$BODY")" \
             --base main \
             --head "$BRANCH"
           # Requires 'Allow auto-merge' enabled in repo Settings → General → Pull Requests.
