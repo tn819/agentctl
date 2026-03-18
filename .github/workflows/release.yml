@@ -171,4 +171,4 @@ jobs:
             --base main \
             --head "$BRANCH"
           # Requires 'Allow auto-merge' enabled in repo Settings → General → Pull Requests.
-          gh pr merge "$BRANCH" --squash --auto --delete-branch
+          gh pr merge "$BRANCH" --squash --auto --delete-branch || true
