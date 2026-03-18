@@ -7,20 +7,17 @@ import type { SandboxProvider } from "../lib/sandbox";
 type AgentConfig = Awaited<ReturnType<typeof loadAgentConfig>>;
 
 function getProvider(name: string, config: AgentConfig): SandboxProvider {
-  switch (name) {
-    case "docker": {
-      const d = config.runtime?.docker;
-      return new DockerSandboxProvider({
-        socket:  d?.socket,
-        image:   d?.image,
-        memory:  d?.memory,
-        cpus:    d?.cpus,
-        network: d?.network as "none" | "bridge" | undefined,
-      });
-    }
-    default:
-      throw new Error(`Unknown sandbox provider: ${name}. Supported: docker`);
+  if (name === "docker") {
+    const d = config.runtime?.docker;
+    return new DockerSandboxProvider({
+      socket:  d?.socket,
+      image:   d?.image,
+      memory:  d?.memory,
+      cpus:    d?.cpus,
+      network: d?.network as "none" | "bridge" | undefined,
+    });
   }
+  throw new Error(`Unknown sandbox provider: ${name}. Supported: docker`);
 }
 
 export function registerAgent(program: Command): void {
@@ -74,10 +71,22 @@ export function registerAgent(program: Command): void {
       const session = store.getSession(sessionId);
       if (!session) { console.error(`Session not found: ${sessionId}`); process.exit(1); }
       const provider = getProvider(session.provider, config);
+      const startedAt = Date.now();
       const result = await provider.exec(
         { id: session.container_id, provider: session.provider },
         ["sh", "-c", command],
       );
+      store.recordToolCall({
+        sessionId,
+        serverName: session.provider,
+        toolName: "exec",
+        runtime: session.provider,
+        provider: session.provider,
+        policyResult: "allow",
+        startedAt,
+        endedAt: Date.now(),
+        responseOk: result.exitCode === 0,
+      });
       if (result.stdout) process.stdout.write(result.stdout);
       if (result.stderr) process.stderr.write(result.stderr);
       process.exit(result.exitCode);
