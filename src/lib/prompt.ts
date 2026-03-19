@@ -6,9 +6,10 @@
  * - Returns defaultValue (false) on EOF (non-interactive / piped with no input)
  */
 type LineReader = () => Promise<string | null>;
+type Writer = (s: string) => void;
 
-export async function promptBoolean(question: string, defaultValue = false, _readLine: LineReader = readLine): Promise<boolean> {
-  process.stderr.write(`${question} [y/n] `);
+export async function promptBoolean(question: string, defaultValue = false, _readLine: LineReader = readLine, _write: Writer = (s) => process.stderr.write(s)): Promise<boolean> {
+  _write(`${question} [y/n] `);
   const line = await _readLine();
   if (line === null) return defaultValue;
   return line.trim().toLowerCase() === "y";
