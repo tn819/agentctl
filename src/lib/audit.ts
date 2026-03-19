@@ -42,8 +42,8 @@ export class AuditStore {
   }
 
   init(): void {
-    const schema = `
-      CREATE TABLE IF NOT EXISTS tool_calls (
+    for (const sql of [
+      `CREATE TABLE IF NOT EXISTS tool_calls (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id   TEXT,
         server_name  TEXT NOT NULL,
@@ -57,17 +57,17 @@ export class AuditStore {
         duration_ms  INTEGER,
         response_ok  INTEGER,
         error_code   TEXT
-      );
-      CREATE TABLE IF NOT EXISTS sync_events (
+      )`,
+      `CREATE TABLE IF NOT EXISTS sync_events (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         synced_at   INTEGER NOT NULL,
         providers   TEXT NOT NULL,
         servers     TEXT NOT NULL,
         dry_run     INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_tc_server  ON tool_calls(server_name);
-      CREATE INDEX IF NOT EXISTS idx_tc_started ON tool_calls(started_at);
-      CREATE TABLE IF NOT EXISTS sandbox_sessions (
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_tc_server  ON tool_calls(server_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_tc_started ON tool_calls(started_at)`,
+      `CREATE TABLE IF NOT EXISTS sandbox_sessions (
         id           TEXT PRIMARY KEY,
         provider     TEXT NOT NULL,
         container_id TEXT NOT NULL,
@@ -77,10 +77,11 @@ export class AuditStore {
         status       TEXT NOT NULL DEFAULT 'running',
         created_at   INTEGER NOT NULL,
         closed_at    INTEGER
-      );
-      CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status);
-    `;
-    this.db.exec(schema); // NOSONAR — no bindings passed; not the deprecated exec(sql, ...bindings) overload
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status)`,
+    ]) {
+      this.db.prepare(sql).run();
+    }
   }
 
   recordToolCall(r: ToolCallRecord): void {
