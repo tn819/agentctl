@@ -7,7 +7,9 @@ const config: KnipConfig = {
   entry: ["scripts/*.ts", "src/**/*.test.ts"],
   project: ["src/**/*.ts", "scripts/**/*.ts"],
   ignoreBinaries: [
-    "bats", // system test runner, not a package
+    "bats",   // system test runner, not a package
+    "eslint", // called in scripts, provided by devDependency eslint
+    "knip",   // called in scripts, provided by devDependency knip
   ],
   ignore: [
     "src/lib/verify.ts", // pending feat/wire-verify-supply-chain
