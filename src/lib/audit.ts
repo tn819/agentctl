@@ -42,6 +42,7 @@ export class AuditStore {
   }
 
   init(): void {
+    // NOSONAR — multi-statement DDL with no bindings; not the deprecated exec(sql, ...bindings) overload
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS tool_calls (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,

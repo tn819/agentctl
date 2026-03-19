@@ -184,7 +184,7 @@ export class DockerSandboxProvider implements SandboxProvider {
 }
 
 function parseMem(mem: string): number {
-  const m = /^(\d+(?:\.\d+)?)(m|g|k)?$/i.exec(mem);
+  const m = /^(\d+(?:\.\d+)?)([mgk])?$/i.exec(mem);
   if (!m) throw new Error(`Invalid memory spec: ${mem}`);
   const n = Number.parseFloat(m[1]!);
   switch (m[2]?.toLowerCase()) {

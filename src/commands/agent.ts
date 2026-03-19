@@ -14,7 +14,7 @@ function getProvider(name: string, config: AgentConfig): SandboxProvider {
       image:   d?.image,
       memory:  d?.memory,
       cpus:    d?.cpus,
-      network: d?.network as "none" | "bridge" | undefined,
+      network: d?.network,
     });
   }
   throw new Error(`Unknown sandbox provider: ${name}. Supported: docker`);
