@@ -136,7 +136,7 @@ jobs:
           # not yet run for that commit SHA). PR + auto-merge is the safe path.
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Compute SHAs and update formula
         env:
@@ -153,7 +153,7 @@ jobs:
 
       - name: Open PR for formula update
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           set -euo pipefail
