@@ -42,8 +42,7 @@ export class AuditStore {
   }
 
   init(): void {
-    // NOSONAR — multi-statement DDL with no bindings; not the deprecated exec(sql, ...bindings) overload
-    this.db.exec(`
+    const schema = `
       CREATE TABLE IF NOT EXISTS tool_calls (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id   TEXT,
@@ -80,7 +79,8 @@ export class AuditStore {
         closed_at    INTEGER
       );
       CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status);
-    `);
+    `;
+    this.db.exec(schema); // NOSONAR — no bindings passed; not the deprecated exec(sql, ...bindings) overload
   }
 
   recordToolCall(r: ToolCallRecord): void {
