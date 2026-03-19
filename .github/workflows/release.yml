@@ -163,7 +163,7 @@ jobs:
           git checkout -b "$BRANCH"
           git add Formula/vakt.rb
           git commit -m "chore(release): update homebrew formula to ${VERSION} [skip ci]"
-          git push origin "$BRANCH"
+          git push --force origin "$BRANCH"
           BODY="Automated formula update for release v${VERSION}.\n\nUpdates \`Formula/vakt.rb\` with the correct version and SHA-256 checksums for the published binaries.\n\n_This PR was opened automatically by the release workflow._"
           gh pr create \
             --title "chore(release): update homebrew formula to ${VERSION}" \
@@ -171,4 +171,4 @@ jobs:
             --base main \
             --head "$BRANCH"
           # Requires 'Allow auto-merge' enabled in repo Settings → General → Pull Requests.
-          gh pr merge "$BRANCH" --squash --auto --delete-branch
+          gh pr merge "$BRANCH" --squash --auto --delete-branch || true

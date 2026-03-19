@@ -22,10 +22,10 @@ export function registerRuntime(program: Command): void {
 
   runtime
     .command("set <server> <backend>")
-    .description("Set runtime for a server: local | e2b")
+    .description("Set runtime for a server: local | e2b | docker")
     .action((server: string, backend: string) => {
-      if (!["local", "e2b"].includes(backend)) {
-        console.error("Backend must be 'local' or 'e2b'");
+      if (!["local", "e2b", "docker"].includes(backend)) {
+        console.error("Backend must be 'local', 'e2b', or 'docker'");
         process.exit(1);
       }
       const ac = loadAgentConfig();

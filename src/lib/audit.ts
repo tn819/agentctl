@@ -7,6 +7,18 @@ export function defaultAuditDbPath(): string {
   return join(AGENTS_DIR, "audit.db");
 }
 
+export interface SandboxSession {
+  id: string;
+  provider: string;
+  container_id: string;
+  image: string | null;
+  repo: string | null;
+  name: string | null;
+  status: string;
+  created_at: number;
+  closed_at: number | null;
+}
+
 export interface ToolCallRecord {
   sessionId: string;
   serverName: string;
@@ -30,8 +42,8 @@ export class AuditStore {
   }
 
   init(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS tool_calls (
+    for (const sql of [
+      `CREATE TABLE IF NOT EXISTS tool_calls (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id   TEXT,
         server_name  TEXT NOT NULL,
@@ -45,17 +57,17 @@ export class AuditStore {
         duration_ms  INTEGER,
         response_ok  INTEGER,
         error_code   TEXT
-      );
-      CREATE TABLE IF NOT EXISTS sync_events (
+      )`,
+      `CREATE TABLE IF NOT EXISTS sync_events (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         synced_at   INTEGER NOT NULL,
         providers   TEXT NOT NULL,
         servers     TEXT NOT NULL,
         dry_run     INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_tc_server  ON tool_calls(server_name);
-      CREATE INDEX IF NOT EXISTS idx_tc_started ON tool_calls(started_at);
-      CREATE TABLE IF NOT EXISTS sandbox_sessions (
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_tc_server  ON tool_calls(server_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_tc_started ON tool_calls(started_at)`,
+      `CREATE TABLE IF NOT EXISTS sandbox_sessions (
         id           TEXT PRIMARY KEY,
         provider     TEXT NOT NULL,
         container_id TEXT NOT NULL,
@@ -65,9 +77,11 @@ export class AuditStore {
         status       TEXT NOT NULL DEFAULT 'running',
         created_at   INTEGER NOT NULL,
         closed_at    INTEGER
-      );
-      CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status);
-    `);
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_ss_status ON sandbox_sessions(status)`,
+    ]) {
+      this.db.prepare(sql).run();
+    }
   }
 
   recordToolCall(r: ToolCallRecord): void {
@@ -124,21 +138,21 @@ export class AuditStore {
     return id;
   }
 
-  getSession(id: string): any | null {
+  getSession(id: string): SandboxSession | null {
     return this.db.prepare(
       "SELECT * FROM sandbox_sessions WHERE id = ?"
-    ).get(id) as any ?? null;
+    ).get(id) as SandboxSession | null;
   }
 
-  listSessions(opts: { status?: string } = {}): any[] {
+  listSessions(opts: { status?: string } = {}): SandboxSession[] {
     if (opts.status) {
       return this.db.prepare(
         "SELECT * FROM sandbox_sessions WHERE status = ? ORDER BY created_at DESC"
-      ).all(opts.status) as any[];
+      ).all(opts.status) as SandboxSession[];
     }
     return this.db.prepare(
       "SELECT * FROM sandbox_sessions ORDER BY created_at DESC"
-    ).all() as any[];
+    ).all() as SandboxSession[];
   }
 
   closeSession(id: string): void {
